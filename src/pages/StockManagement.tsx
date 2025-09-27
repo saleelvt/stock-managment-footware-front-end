@@ -140,7 +140,7 @@ export function StockManagement() {
       };
 
       const response = await addProduct(payload);
-      
+
       // Refresh the products list to maintain consistency with backend
       fetchProducts(currentPage, searchTerm);
 
@@ -295,8 +295,8 @@ export function StockManagement() {
           />
         </div>
         {searchTerm && (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setSearchTerm("")}
             disabled={isLoading}
             className="w-full sm:w-auto"
@@ -310,7 +310,9 @@ export function StockManagement() {
       {isLoading && (
         <div className="text-center py-8 sm:py-12">
           <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground text-sm sm:text-base">Loading products...</p>
+          <p className="text-muted-foreground text-sm sm:text-base">
+            Loading products...
+          </p>
         </div>
       )}
 
@@ -327,7 +329,9 @@ export function StockManagement() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1 flex-1 min-w-0">
-                      <CardTitle className="text-base sm:text-lg truncate">{product.code}</CardTitle>
+                      <CardTitle className="text-base sm:text-lg truncate">
+                        {product.code}
+                      </CardTitle>
                       <p className="text-sm text-muted-foreground truncate">
                         {product.name}
                       </p>
@@ -350,9 +354,7 @@ export function StockManagement() {
 
                   {/* Size Stock Details */}
                   <div className="space-y-2">
-                    <span className="text-sm font-medium">
-                      Stock by Size:
-                    </span>
+                    <span className="text-sm font-medium">Stock by Size:</span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {product.sizes.map((size, index) => (
                         <div
@@ -363,7 +365,9 @@ export function StockManagement() {
                               : "bg-muted"
                           }`}
                         >
-                          <div className="font-medium text-xs sm:text-sm">{size.size}</div>
+                          <div className="font-medium text-xs sm:text-sm">
+                            {size.size}
+                          </div>
                           <div className="text-xs">{size.stock}</div>
                         </div>
                       ))}
@@ -407,20 +411,21 @@ export function StockManagement() {
                       </AlertDialogTrigger>
                       <AlertDialogContent className="mx-4 sm:mx-0">
                         <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Confirm Deletion
-                          </AlertDialogTitle>
+                          <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
                           <AlertDialogDescription>
                             Are you sure you want to delete{" "}
                             <strong>
                               {product.code} - {product.name}
                             </strong>
-                            ? This action cannot be undone and will
-                            permanently remove the product from inventory.
+                            ? This action cannot be undone and will permanently
+                            remove the product from inventory.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                          <AlertDialogCancel disabled={isDeletingProduct} className="w-full sm:w-auto">
+                          <AlertDialogCancel
+                            disabled={isDeletingProduct}
+                            className="w-full sm:w-auto"
+                          >
                             Cancel
                           </AlertDialogCancel>
                           <AlertDialogAction
@@ -463,7 +468,11 @@ export function StockManagement() {
               size="sm"
               className="text-xs sm:text-sm px-2 sm:px-4"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Previous"}
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Previous"
+              )}
             </Button>
             <span className="text-sm px-2 sm:px-4 text-center">
               Page {currentPage} of {totalPages}
@@ -477,7 +486,11 @@ export function StockManagement() {
               size="sm"
               className="text-xs sm:text-sm px-2 sm:px-4"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Next"}
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Next"
+              )}
             </Button>
           </div>
         </div>
@@ -697,17 +710,24 @@ function ProductForm({ onSubmit, onCancel, initialData }: ProductFormProps) {
             <div key={index}>
               <Label className="text-xs">Size {size.size}</Label>
               <Input
-                type="number"
-                min="0"
+                type="text" // 👈 change to text
+                inputMode="numeric" // 👈 still show numeric keypad on mobile
+                pattern="[0-9]*"
                 value={size.stock}
-                onChange={(e) =>
-                  updateSizeStock(index, parseInt(e.target.value) || 0)
-                }
+                onInput={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  let value = e.target.value;
+
+                  // ✅ strip leading zeros
+                  value = value.replace(/^0+(?=\d)/, "");
+
+                  updateSizeStock(index, parseInt(value) || 0);
+                }}
                 className="text-center text-sm"
               />
             </div>
           ))}
         </div>
+
         <Button
           type="button"
           variant="outline"
@@ -729,11 +749,19 @@ function ProductForm({ onSubmit, onCancel, initialData }: ProductFormProps) {
             onChange={(e) => setNewSizeValue(e.target.value)}
             placeholder="Enter size (e.g., 46)"
           />
+
+          
           <DialogFooter className="flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            <Button onClick={addNewSize} className="w-full sm:w-auto">Add Size</Button>
+            <Button onClick={addNewSize} className="w-full sm:w-auto">
+              Add Size
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -770,7 +798,12 @@ interface EditStockFormProps {
   isUpdating?: boolean;
 }
 
-function EditStockForm({ product, onClose, onUpdate, isUpdating = false }: EditStockFormProps) {
+function EditStockForm({
+  product,
+  onClose,
+  onUpdate,
+  isUpdating = false,
+}: EditStockFormProps) {
   const [sizes, setSizes] = useState<ProductSize[]>([...product.sizes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -800,12 +833,18 @@ function EditStockForm({ product, onClose, onUpdate, isUpdating = false }: EditS
           <div key={index}>
             <Label>Size {size.size}</Label>
             <Input
-              type="number"
+              type="text" 
+              inputMode="numeric" 
+              pattern="[0-9]*"
               min="0"
               value={size.stock}
-              onChange={(e) =>
-                updateSizeStock(index, parseInt(e.target.value) || 0)
-              }
+              onInput={(e: React.ChangeEvent<HTMLInputElement>) => {
+                let value = e.target.value;
+
+                value = value.replace(/^0+(?=\d)/, "");
+
+                updateSizeStock(index, parseInt(value) || 0);
+              }}
               className="text-center"
               disabled={isUpdating}
             />
