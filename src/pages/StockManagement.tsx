@@ -749,6 +749,7 @@ function ProductForm({ onSubmit, onCancel, initialData }: ProductFormProps) {
             onChange={(e) => setNewSizeValue(e.target.value)}
             placeholder="Enter size (e.g., 46)"
           />
+          
           <DialogFooter className="flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
             <Button
               variant="outline"
