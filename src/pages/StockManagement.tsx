@@ -710,14 +710,13 @@ function ProductForm({ onSubmit, onCancel, initialData }: ProductFormProps) {
             <div key={index}>
               <Label className="text-xs">Size {size.size}</Label>
               <Input
-                type="text" // 👈 change to text
-                inputMode="numeric" // 👈 still show numeric keypad on mobile
+                type="text" 
+                inputMode="numeric" 
                 pattern="[0-9]*"
-                value={size.stock}
+                value={size.stock === 0 ? "" : size.stock} 
                 onInput={(e: React.ChangeEvent<HTMLInputElement>) => {
                   let value = e.target.value;
 
-                  // ✅ strip leading zeros
                   value = value.replace(/^0+(?=\d)/, "");
 
                   updateSizeStock(index, parseInt(value) || 0);
@@ -750,7 +749,6 @@ function ProductForm({ onSubmit, onCancel, initialData }: ProductFormProps) {
             placeholder="Enter size (e.g., 46)"
           />
 
-          
           <DialogFooter className="flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
             <Button
               variant="outline"
@@ -833,11 +831,11 @@ function EditStockForm({
           <div key={index}>
             <Label>Size {size.size}</Label>
             <Input
-              type="text" 
-              inputMode="numeric" 
+              type="text"
+              inputMode="numeric"
               pattern="[0-9]*"
               min="0"
-              value={size.stock}
+              value={size.stock === 0 ? "" : size.stock}
               onInput={(e: React.ChangeEvent<HTMLInputElement>) => {
                 let value = e.target.value;
 
