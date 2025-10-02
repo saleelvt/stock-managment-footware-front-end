@@ -1,23 +1,9 @@
-import { urlEndPoints } from "@/api/apiConfig";
-import apiService from "@/api/apiService";
+import { indexedDBService } from "./indexedDBService";
 
-// Return structure
-export interface Return {
-  id: string;
-  originalSaleId: string;
-  productId: string;
-  productCode: string;
-  productName: string;
-  size: string;
-  quantity: number;
-  customerName: string;
-  returnDate: Date;
-  reason?: string;
-  notes?: string;
-  color?: string;
-}
+// Re-export types for backward compatibility
+export type { Return } from "./indexedDBService";
 
-// Request payload for creating a return
+// Legacy interfaces for backward compatibility
 export interface CreateReturnRequest {
   saleId: string;
   productCode: string;
@@ -27,7 +13,7 @@ export interface CreateReturnRequest {
   notes?: string;
 }
 
-// Response structure from backend
+// Response structure from backend (for backward compatibility)
 export interface ReturnResponse {
   _id: string;
   sale: string;
@@ -57,16 +43,64 @@ export interface ReturnsResponse {
   };
 }
 
+// Transform legacy return request to IndexedDB format
+const transformReturnRequestToIDB = async (returnData: CreateReturnRequest) => {
+  const now = new Date();
+
+  // Get sale details to populate customer and product information
+  const sale = await indexedDBService.getSale(parseInt(returnData.saleId));
+  if (!sale) {
+    throw new Error(`Sale with id ${returnData.saleId} not found`);
+  }
+
+  // Find the sale item to get product details
+  const saleItem = sale.items.find(item =>
+    item.productCode === returnData.productCode && item.size === returnData.size
+  );
+
+  if (!saleItem) {
+    throw new Error(`Sale item not found for product ${returnData.productCode} size ${returnData.size}`);
+  }
+
+  return {
+    originalSaleId: parseInt(returnData.saleId),
+    productId: saleItem.productId,
+    productCode: returnData.productCode,
+    productName: saleItem.productName,
+    size: returnData.size,
+    quantity: returnData.quantity,
+    customerName: sale.customerName,
+    returnDate: now,
+    reason: returnData.reason,
+    notes: returnData.notes,
+    color: saleItem.color,
+    createdAt: now,
+    updatedAt: now
+  };
+};
+
+// Transform IndexedDB return to legacy format
+const transformReturnToLegacy = (idbReturn: any) => ({
+  id: idbReturn.id?.toString() || '',
+  originalSaleId: idbReturn.originalSaleId?.toString() || '',
+  productId: idbReturn.productId?.toString() || '',
+  productCode: idbReturn.productCode,
+  productName: idbReturn.productName,
+  size: idbReturn.size,
+  quantity: idbReturn.quantity,
+  customerName: idbReturn.customerName,
+  returnDate: idbReturn.returnDate,
+  reason: idbReturn.reason,
+  notes: idbReturn.notes,
+  color: idbReturn.color
+});
+
 // Create new return
-export const addReturn = async (returnData: CreateReturnRequest): Promise<Return> => {
+export const addReturn = async (returnData: CreateReturnRequest): Promise<any> => {
   try {
-    const res = await apiService.post(urlEndPoints.createReturn, returnData);
-    
-    if (!res.data) {
-      throw new Error('No data received from server');
-    }
-    
-    return transformReturnResponse(res.data);
+    const idbReturnData = await transformReturnRequestToIDB(returnData);
+    const result = await indexedDBService.addReturn(idbReturnData);
+    return transformReturnToLegacy(result);
   } catch (error) {
     console.error('Error in addReturn:', error);
     throw error;
@@ -74,21 +108,14 @@ export const addReturn = async (returnData: CreateReturnRequest): Promise<Return
 };
 
 // Get returns with pagination
-export const getReturns = async (page = 1, limit = 4): Promise<{data: Return[], meta: any}> => {
+export const getReturns = async (page = 1, limit = 4): Promise<{data: any[], meta: any}> => {
   try {
-    const res = await apiService.get(urlEndPoints.getRecentReturns(page, limit));
-    
-    if (!res.data) {
-      throw new Error('No data received from server');
-    }
+    const response = await indexedDBService.getReturnsPaginated(page, limit);
+    const legacyReturns = response.data.map(transformReturnToLegacy);
 
-    const returnsResponse: ReturnsResponse = res.data;
-    
-    const transformedReturns: Return[] = returnsResponse.data.map(transformReturnResponse);
-    
     return {
-      data: transformedReturns,
-      meta: returnsResponse.meta
+      data: legacyReturns,
+      meta: response.meta
     };
   } catch (error) {
     console.error('Error in getReturns:', error);
@@ -97,7 +124,7 @@ export const getReturns = async (page = 1, limit = 4): Promise<{data: Return[], 
 };
 
 // Get recent returns (convenience function)
-export const getRecentReturns = async (limit = 4): Promise<Return[]> => {
+export const getRecentReturns = async (limit = 4): Promise<any[]> => {
   try {
     const response = await getReturns(1, limit);
     return response.data;
@@ -107,34 +134,10 @@ export const getRecentReturns = async (limit = 4): Promise<Return[]> => {
   }
 };
 
-
-// Helper function to transform backend response to frontend Return format
-// Replace the transformReturnResponse function:
-const transformReturnResponse = (returnItem: ReturnResponse): Return => {
-  if (!returnItem) {
-    throw new Error('Return response is null or undefined');
-  }
-  
-  return {
-    id: returnItem._id || '',
-    originalSaleId: returnItem.sale || '',
-    productId: returnItem.product || '',
-    productCode: returnItem.productCode || '',
-    productName: returnItem.productCode || 'Unknown Product', 
-    size: returnItem.size || '',
-    quantity: returnItem.quantity || 0,
-    customerName: returnItem.customerName || 'Unknown Customer',
-    returnDate: returnItem.createdAt ? new Date(returnItem.createdAt) : new Date(),
-    reason: returnItem.reason,
-    notes: returnItem.notes,
-    color: returnItem.color
-  };
-};
-
 // Helper function to transform frontend Return to backend request format
-export const transformReturnToRequest = (returnItem: Omit<Return, 'id' | 'returnDate' | 'customerName' | 'productName' | 'productId' | 'color'>): CreateReturnRequest => {
+export const transformReturnToRequest = (returnItem: any): CreateReturnRequest => {
   return {
-    saleId: returnItem.originalSaleId || '',
+    saleId: returnItem.originalSaleId?.toString() || '',
     productCode: returnItem.productCode || '',
     size: returnItem.size || '',
     quantity: returnItem.quantity || 0,

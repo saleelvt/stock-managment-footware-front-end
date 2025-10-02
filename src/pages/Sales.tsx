@@ -62,7 +62,7 @@ export function Sales() {
         : [];
 
       const formattedProducts: Product[] = source.map((productData: any) => ({
-        id: productData._id, // Always use backend ID
+        id: productData.id, // Always use backend ID
         code: productData.productCode,
         name: productData.productName,
         brand: productData.brand,
