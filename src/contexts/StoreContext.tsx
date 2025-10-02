@@ -1,15 +1,19 @@
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useState } from 'react';
 import { Product, Sale, Return, StockAlert, DashboardStats } from '@/types';
-import { sampleProducts, sampleSales, sampleReturns } from '@/data/sampleData';
+import { indexedDBService } from '@/services/indexedDBService';
 
 interface StoreState {
-  products: Product[]; 
-  sales: Sale[]; 
+  products: Product[];
+  sales: Sale[];
   returns: Return[];
-  lowStockThreshold: number; 
+  lowStockThreshold: number;
+  isLoading: boolean;
+  isInitialized: boolean;
 }
 
 type StoreAction =
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_DATA'; payload: { products: Product[]; sales: Sale[]; returns: Return[] } }
   | { type: 'ADD_PRODUCT'; payload: Product }
   | { type: 'UPDATE_PRODUCT'; payload: Product }
   | { type: 'DELETE_PRODUCT'; payload: string }
@@ -23,10 +27,27 @@ const initialState: StoreState = {
   sales: [],
   returns: [],
   lowStockThreshold: 5,
+  isLoading: true,
+  isInitialized: false,
 };
 
 function storeReducer(state: StoreState, action: StoreAction): StoreState {
   switch (action.type) {
+    case 'SET_LOADING':
+      return {
+        ...state,
+        isLoading: action.payload,
+        isInitialized: action.payload ? false : state.isInitialized,
+      };
+
+    case 'SET_DATA':
+      return {
+        ...state,
+        ...action.payload,
+        isLoading: false,
+        isInitialized: true,
+      };
+
     case 'ADD_PRODUCT':
       return {
         ...state,
@@ -132,16 +153,91 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(storeReducer, initialState);
 
-  // Load sample data on first load
+  // Load data from IndexedDB on first load
   useEffect(() => {
-    dispatch({
-      type: 'LOAD_INITIAL_DATA',
-      payload: {
-        products: sampleProducts,
-        sales: sampleSales,
-        returns: sampleReturns,
-      },
-    });
+    const initializeData = async () => {
+      try {
+        dispatch({ type: 'SET_LOADING', payload: true });
+
+        // Initialize IndexedDB
+        await indexedDBService.init();
+
+        // Load all data from IndexedDB
+        const [products, sales, returns] = await Promise.all([
+          indexedDBService.getAllProducts(),
+          indexedDBService.getAllSales(),
+          indexedDBService.getAllReturns()
+        ]);
+
+        // Transform IndexedDB data to match the expected format
+        const transformedProducts: Product[] = products.map(p => ({
+          id: p.id?.toString() || '',
+          code: p.code,
+          name: p.name,
+          brand: p.brand || '',
+          color: p.color,
+          category: p.category || '',
+          sizes: p.sizes.map(s => ({ size: s.size, stock: s.stock })),
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt
+        }));
+
+        const transformedSales: Sale[] = sales.map(s => ({
+          id: s.id?.toString() || '',
+          _id: s.id?.toString(),
+          customerName: s.customerName,
+          items: s.items.map((item: any) => ({
+            productId: item.productId?.toString() || '',
+            productCode: item.productCode,
+            productName: item.productName,
+            size: item.size,
+            quantity: item.quantity,
+            color: item.color
+          })),
+          totalItems: s.totalItems,
+          saleDate: s.saleDate,
+          notes: s.notes
+        }));
+
+        const transformedReturns: Return[] = returns.map(r => ({
+          id: r.id?.toString() || '',
+          originalSaleId: r.originalSaleId?.toString() || '',
+          productId: r.productId?.toString() || '',
+          productCode: r.productCode,
+          productName: r.productName,
+          size: r.size,
+          quantity: r.quantity,
+          customerName: r.customerName,
+          returnDate: r.returnDate,
+          reason: r.reason,
+          notes: r.notes
+        }));
+
+        dispatch({
+          type: 'SET_DATA',
+          payload: {
+            products: transformedProducts,
+            sales: transformedSales,
+            returns: transformedReturns
+          }
+        });
+      } catch (error) {
+        console.error('Error initializing data from IndexedDB:', error);
+        // Set empty arrays as fallback
+        dispatch({
+          type: 'SET_DATA',
+          payload: {
+            products: [],
+            sales: [],
+            returns: []
+          }
+        });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
+
+    initializeData();
   }, []);
 
   const getStockAlerts = (): StockAlert[] => {

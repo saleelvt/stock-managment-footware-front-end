@@ -73,7 +73,7 @@ export function StockManagement() {
       const { data: productsData, meta: paginationMeta } = response;
 
       const formattedProducts: Product[] = productsData.map((product: any) => ({
-        id: product._id,
+        id: product.id,
         code: product.productCode,
         name: product.productName,
         brand: product.brand,

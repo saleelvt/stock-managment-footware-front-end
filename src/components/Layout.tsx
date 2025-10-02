@@ -12,6 +12,7 @@ import {
   X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import OfflineIndicator from './OfflineIndicator';
 
 interface LayoutProps {
   children: ReactNode;
@@ -69,6 +70,7 @@ export function Layout({ children }: LayoutProps) {
                 <Menu className="w-5 h-5" />
               )}
             </Button>
+            <OfflineIndicator />
           </div>
         </div>
       </header>
