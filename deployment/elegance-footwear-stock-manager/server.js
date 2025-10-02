@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 
-/**
- * Simple HTTP Server for Elegance Footwear Stock Manager
- * Serves the built application on port 3000
- */
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
 const APP_DIR = path.join(__dirname, 'app');
