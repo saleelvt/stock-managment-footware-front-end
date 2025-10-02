@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
 import { useStore } from '@/contexts/StoreContext';
 import { Product, Sale, SaleItem } from '@/types';
@@ -9,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { 
   Plus, 
-  Trash2, 
+  Trash2,  
   ShoppingCart,
   Receipt,
-  Search,
+  Search, 
   RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -329,12 +330,12 @@ export function Sales() {
             <CardContent className="space-y-4 sm:space-y-6">
               {/* Customer Information */}
               <div className="space-y-2">
-                <Label htmlFor="customerName" className="text-sm font-medium">Customer Name *</Label>
+                <Label htmlFor="customerName" className="text-sm font-medium">Customer Number *</Label>
                 <Input
                   id="customerName"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Enter customer name"
+                  placeholder="Enter customer number"
                   className="h-10"
                   required
                 />

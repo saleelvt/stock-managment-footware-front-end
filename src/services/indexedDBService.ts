@@ -486,7 +486,7 @@ class IndexedDBService {
       throw error;
     }
   }
-
+ 
   async getAllReturns(): Promise<Return[]> {
     try {
       const store = await this.getStore(STORES.RETURNS);

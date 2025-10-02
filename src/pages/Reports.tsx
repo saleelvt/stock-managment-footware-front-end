@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { 
   BarChart3, 
   TrendingUp, 
-  Calendar,
+  Calendar, 
   Download,
   Filter,
   Search

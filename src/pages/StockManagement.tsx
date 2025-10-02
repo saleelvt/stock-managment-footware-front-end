@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { useStore } from "@/contexts/StoreContext";
 import { Product, ProductSize } from "@/types";
@@ -6,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   addProduct,
-  deleteProduct,
-  getProducts,
+  deleteProduct,  
+  getProducts, 
   updateProduct,
 } from "@/services/productService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +42,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { debounce } from "lodash";
 
 export function StockManagement() {
   const { state, dispatch } = useStore();
@@ -59,12 +59,6 @@ export function StockManagement() {
   const [isDeletingProduct, setIsDeletingProduct] = useState(false);
 
   const ITEMS_PER_PAGE = 9;
-
-  // Debounced search function
-  const debouncedSearch = debounce((searchValue: string) => {
-    setCurrentPage(1);
-    fetchProducts(1, searchValue);
-  }, 500);
 
   const fetchProducts = async (page = 1, search = "") => {
     try {
@@ -103,21 +97,15 @@ export function StockManagement() {
     }
   };
 
+  // Fetch products when page changes
   useEffect(() => {
     fetchProducts(currentPage, searchTerm);
   }, [currentPage]);
 
-  // Handle search input change with debouncing
+  // Fetch products when search term changes - reset to page 1
   useEffect(() => {
-    if (searchTerm.trim() === "") {
-      debouncedSearch("");
-    } else {
-      debouncedSearch(searchTerm);
-    }
-
-    return () => {
-      debouncedSearch.cancel();
-    };
+    setCurrentPage(1);
+    fetchProducts(1, searchTerm);
   }, [searchTerm]);
 
   const handleAddProduct = async (
@@ -243,6 +231,10 @@ export function StockManagement() {
     setSearchTerm(e.target.value);
   };
 
+  const handleClearSearch = () => {
+    setSearchTerm("");
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
       {/* Header */}
@@ -287,6 +279,7 @@ export function StockManagement() {
         <div className="relative flex-1 max-w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
+            type="text"
             placeholder="Search products by code, name, or color..."
             value={searchTerm}
             onChange={handleSearchChange}
@@ -297,7 +290,7 @@ export function StockManagement() {
         {searchTerm && (
           <Button 
             variant="outline" 
-            onClick={() => setSearchTerm("")}
+            onClick={handleClearSearch}
             disabled={isLoading}
             className="w-full sm:w-auto"
           >

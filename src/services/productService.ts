@@ -13,7 +13,7 @@ export interface StockBySize {
 interface LegacyProduct {
   id?: string;
   productCode: string;
-  productName: string;
+  productName: string; 
   brand: string;
   color: string;
   stockBySize: StockBySize[];

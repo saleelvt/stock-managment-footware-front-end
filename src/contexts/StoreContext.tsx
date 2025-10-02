@@ -66,9 +66,9 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
       return {
         ...state,
         products: state.products.filter(product => product.id !== action.payload),
-      };
+      }; 
 
-    case 'ADD_SALE':
+    case 'ADD_SALE': 
       // Update stock when sale is added
       const updatedProductsAfterSale = state.products.map(product => {
         const saleItem = action.payload.items.find(item => item.productId === product.id);
