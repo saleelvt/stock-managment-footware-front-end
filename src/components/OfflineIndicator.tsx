@@ -129,7 +129,7 @@ export function OfflineIndicator({
   }
 
   return (
-    <Card className={`${className}`}>
+    <Card className={`${className} hidden`}>
       <CardContent className="px-2 py-1">
         <div className="flex items-center justify-between space-x-2">
           <div className="flex items-center gap-3">
