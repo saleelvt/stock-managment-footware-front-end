@@ -28,7 +28,7 @@ export function Reports() {
   // Calculate date range
   const getDateRange = () => {
     const now = new Date();
-    switch (dateFilter) {
+    switch (dateFilter) { 
       case 'today':
         const today = new Date(now);
         today.setHours(0, 0, 0, 0);

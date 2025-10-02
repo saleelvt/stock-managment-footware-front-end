@@ -173,7 +173,7 @@ class IndexedDBService {
     try {
       const store = await this.getStore(STORES.PRODUCTS, 'readwrite');
       const now = new Date();
-
+ 
       const productWithTimestamps = {
         ...product,
         createdAt: now,

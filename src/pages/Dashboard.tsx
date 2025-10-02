@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 
 export function Dashboard() {
   const { getDashboardStats, getStockAlerts, state } = useStore();
-  const stats = getDashboardStats();
+  // const stats = getDashboardStats();
   const alerts = getStockAlerts();
 
   return (
@@ -27,29 +27,29 @@ export function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 px-2 sm:px-0">
         <StatsCard
           title="Total Products"
-          value={stats.totalProducts}
-          icon={<Package className="w-5 h-5 sm:w-6 sm:h-6" />}
+         value={'0'}
+          icon={<Package className="w-5 h-5 sm:w-6 sm:h-6" />} 
           description="Active products in inventory"
         />
         
         <StatsCard
           title="Total Stock"
-          value={stats.totalStock}
+          value={'0'}
           icon={<Archive className="w-5 h-5 sm:w-6 sm:h-6" />}
           description="Items across all sizes"
         />
         
         <StatsCard
           title="Low Stock Alerts"
-          value={stats.lowStockAlerts}
+          value={'0'}
           icon={<AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6" />}
           description="Items below threshold"
-          variant={stats.lowStockAlerts > 0 ? 'warning' : 'success'}
+          variant={ 'success'}
         />
         
         <StatsCard
           title="Today's Sales"
-          value={stats.todaySales}
+           value={'0'}
           icon={<ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />}
           description="Items sold today"
           variant="success"
@@ -57,7 +57,7 @@ export function Dashboard() {
         
         <StatsCard
           title="Total Sales"
-          value={stats.totalSales}
+         value={'0'}
           icon={<TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" />}
           description="All-time sales volume"
           variant="success"
@@ -65,57 +65,13 @@ export function Dashboard() {
         
         <StatsCard
           title="Total Returns"
-          value={stats.totalReturns}
+         value={'0'}
           icon={<RotateCcw className="w-5 h-5 sm:w-6 sm:h-6" />}
           description="Items returned"
         />
       </div>
 
-      {/* Low Stock Alerts */}
-      {alerts.length > 0 && (
-        <div className="bg-card rounded-lg shadow-card border border-border mx-2 sm:mx-0">
-          <div className="p-4 sm:p-6 border-b border-border">
-            <div className="flex items-center space-x-3">
-              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-warning flex-shrink-0" />
-              <h2 className="text-base sm:text-lg font-semibold text-foreground">Low Stock Alerts</h2>
-            </div>
-          </div>
-          
-          <div className="p-4 sm:p-6">
-            <div className="space-y-3">
-              {alerts.slice(0, 5).map((alert, index) => (
-                <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-warning-light rounded-lg space-y-2 sm:space-y-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground text-sm sm:text-base truncate">
-                      {alert.productCode} - {alert.productName}
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      Size {alert.size} • Only {alert.currentStock} left
-                    </p>
-                  </div>
-                  <Link 
-                    to="/stock"
-                    className="text-primary hover:text-primary-dark text-xs sm:text-sm font-medium self-start sm:self-center whitespace-nowrap"
-                  >
-                    Restock
-                  </Link>
-                </div>
-              ))}
-            </div>
-            
-            {alerts.length > 5 && (
-              <div className="mt-4 text-center">
-                <Link 
-                  to="/stock"
-                  className="text-primary hover:text-primary-dark text-xs sm:text-sm font-medium"
-                >
-                  View all {alerts.length} alerts
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+    
 
       {/* Quick Actions */}
       <div className="bg-card rounded-lg shadow-card border border-border p-4 sm:p-6 mx-2 sm:mx-0">

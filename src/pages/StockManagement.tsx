@@ -97,12 +97,10 @@ export function StockManagement() {
     }
   };
 
-  // Fetch products when page changes
   useEffect(() => {
     fetchProducts(currentPage, searchTerm);
   }, [currentPage]);
 
-  // Fetch products when search term changes - reset to page 1
   useEffect(() => {
     setCurrentPage(1);
     fetchProducts(1, searchTerm);
@@ -129,7 +127,6 @@ export function StockManagement() {
 
       const response = await addProduct(payload);
       
-      // Refresh the products list to maintain consistency with backend
       fetchProducts(currentPage, searchTerm);
 
       toast({
@@ -162,7 +159,6 @@ export function StockManagement() {
 
       await updateProduct(updatedProduct.id, payload);
 
-      // Refresh the products list to maintain consistency with backend
       fetchProducts(currentPage, searchTerm);
 
       setEditingProduct(null);
@@ -189,7 +185,6 @@ export function StockManagement() {
       setIsDeletingProduct(true);
       await deleteProduct(productId);
 
-      // Check if this was the last product on the current page
       if (products.length === 1 && currentPage > 1) {
         const newPage = currentPage - 1;
         setCurrentPage(newPage);
@@ -228,6 +223,7 @@ export function StockManagement() {
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault()
     setSearchTerm(e.target.value);
   };
 
@@ -237,7 +233,6 @@ export function StockManagement() {
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
@@ -274,7 +269,6 @@ export function StockManagement() {
         </Dialog>
       </div>
 
-      {/* Search */}
       <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
         <div className="relative flex-1 max-w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -299,7 +293,6 @@ export function StockManagement() {
         )}
       </div>
 
-      {/* Loading State */}
       {isLoading && (
         <div className="text-center py-8 sm:py-12">
           <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
@@ -307,7 +300,6 @@ export function StockManagement() {
         </div>
       )}
 
-      {/* Products Grid */}
       {!isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
           {products.map((product) => {
@@ -335,13 +327,11 @@ export function StockManagement() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* Total Stock */}
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Total Stock:</span>
                     <span className="text-lg font-bold">{totalStock}</span>
                   </div>
 
-                  {/* Size Stock Details */}
                   <div className="space-y-2">
                     <span className="text-sm font-medium">
                       Stock by Size:
@@ -363,7 +353,6 @@ export function StockManagement() {
                     </div>
                   </div>
 
-                  {/* Low Stock Alert */}
                   {hasLowStock && (
                     <div className="bg-warning-light p-3 rounded-lg">
                       <p className="text-sm text-warning font-medium">
@@ -441,7 +430,6 @@ export function StockManagement() {
         </div>
       )}
 
-      {/* Pagination */}
       {!isLoading && products.length > 0 && (
         <div className="flex flex-col items-center space-y-3 mt-6">
           <span className="text-sm text-muted-foreground text-center px-4">
@@ -476,7 +464,6 @@ export function StockManagement() {
         </div>
       )}
 
-      {/* Empty State */}
       {!isLoading && products.length === 0 && (
         <div className="text-center py-8 sm:py-12 px-4">
           <Package className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground mx-auto mb-4" />
@@ -491,7 +478,6 @@ export function StockManagement() {
         </div>
       )}
 
-      {/* Edit Stock Dialog */}
       {editingProduct && (
         <Dialog
           open={!!editingProduct}
@@ -591,10 +577,11 @@ function ProductForm({ onSubmit, onCancel, initialData }: ProductFormProps) {
     }
   };
 
-  const updateSizeStock = (index: number, stock: number) => {
+  const updateSizeStock = (index: number, value: string) => {
+    const numValue = parseInt(value) || 0;
     setSizes((prev) =>
       prev.map((size, i) =>
-        i === index ? { ...size, stock: Math.max(0, stock) } : size
+        i === index ? { ...size, stock: Math.max(0, numValue) } : size
       )
     );
   };
@@ -690,13 +677,11 @@ function ProductForm({ onSubmit, onCancel, initialData }: ProductFormProps) {
             <div key={index}>
               <Label className="text-xs">Size {size.size}</Label>
               <Input
-                type="number"
-                min="0"
+                type="text"
                 value={size.stock}
-                onChange={(e) =>
-                  updateSizeStock(index, parseInt(e.target.value) || 0)
-                }
+                onChange={(e) => updateSizeStock(index, e.target.value)}
                 className="text-center text-sm"
+                placeholder="0"
               />
             </div>
           ))}
@@ -778,10 +763,11 @@ function EditStockForm({ product, onClose, onUpdate, isUpdating = false }: EditS
     onUpdate(updatedProduct);
   };
 
-  const updateSizeStock = (index: number, stock: number) => {
+  const updateSizeStock = (index: number, value: string) => {
+    const numValue = parseInt(value) ;
     setSizes((prev) =>
       prev.map((size, i) =>
-        i === index ? { ...size, stock: Math.max(0, stock) } : size
+        i === index ? { ...size, stock: Math.max(0, numValue) } : size
       )
     );
   };
@@ -793,14 +779,12 @@ function EditStockForm({ product, onClose, onUpdate, isUpdating = false }: EditS
           <div key={index}>
             <Label>Size {size.size}</Label>
             <Input
-              type="number"
-              min="0"
+              type="text"
               value={size.stock}
-              onChange={(e) =>
-                updateSizeStock(index, parseInt(e.target.value) || 0)
-              }
+              onChange={(e) => updateSizeStock(index, e.target.value)}
               className="text-center"
               disabled={isUpdating}
+              placeholder="0"
             />
           </div>
         ))}
