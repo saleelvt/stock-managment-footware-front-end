@@ -68,23 +68,30 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
         products: state.products.filter(product => product.id !== action.payload),
       }; 
 
-    case 'ADD_SALE': 
+    case 'ADD_SALE':
       // Update stock when sale is added
       const updatedProductsAfterSale = state.products.map(product => {
         const saleItem = action.payload.items.find(item => item.productId === product.id);
         if (saleItem) {
-          return { 
-            ...product,
-            sizes: product.sizes.map(size => 
-              size.size === saleItem.size 
-                ? { ...size, stock: Math.max(0, size.stock - saleItem.quantity) }
-                : size
-            ),
-          };
+          // Validate stock availability before reducing
+          const currentSizeStock = product.sizes.find(size => size.size === saleItem.size);
+          if (currentSizeStock && currentSizeStock.stock >= saleItem.quantity) {
+            return {
+              ...product,
+              sizes: product.sizes.map(size =>
+                size.size === saleItem.size
+                  ? { ...size, stock: size.stock - saleItem.quantity }
+                  : size
+              ),
+              updatedAt: new Date() // Update timestamp when stock changes
+            };
+          } else {
+            console.warn(`Insufficient stock for product ${product.code}, size ${saleItem.size}. Available: ${currentSizeStock?.stock || 0}, Requested: ${saleItem.quantity}`);
+          }
         }
         return product;
-      }); 
- 
+      });
+
       return {
         ...state,
         products: updatedProductsAfterSale,
@@ -95,6 +102,12 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
       // Update stock when return is processed
       const updatedProductsAfterReturn = state.products.map(product => {
         if (product.id === action.payload.productId) {
+          // Validate return quantity is positive
+          if (action.payload.quantity <= 0) {
+            console.warn(`Invalid return quantity: ${action.payload.quantity}`);
+            return product;
+          }
+
           return {
             ...product,
             sizes: product.sizes.map(size =>
@@ -102,6 +115,7 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
                 ? { ...size, stock: size.stock + action.payload.quantity }
                 : size
             ),
+            updatedAt: new Date() // Update timestamp when stock changes
           };
         }
         return product;
@@ -141,11 +155,13 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
 
 interface StoreContextType {
   state: StoreState;
-  dispatch: React.Dispatch<StoreAction>; 
+  dispatch: React.Dispatch<StoreAction>;
   getStockAlerts: () => StockAlert[];
   getDashboardStats: () => DashboardStats;
-  getProductByCode: (code: string) => Product | undefined; 
+  getProductByCode: (code: string) => Product | undefined;
   getSaleById: (id: string) => Sale | undefined;
+  updateStock: (productId: string, size: string, quantity: number) => void;
+  validateStockBeforeSale: (productCode: string, size: string, quantity: number) => boolean;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -289,6 +305,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return state.sales.find(sale => sale.id === id);
   };
 
+  const updateStock = (productId: string, size: string, quantity: number) => {
+    dispatch({ type: 'UPDATE_STOCK', payload: { productId, size, quantity } });
+  };
+
+  const validateStockBeforeSale = (productCode: string, size: string, quantity: number): boolean => {
+    const product = getProductByCode(productCode);
+    if (!product) return false;
+
+    const sizeStock = product.sizes.find(s => s.size === size);
+    return sizeStock ? sizeStock.stock >= quantity : false;
+  };
+
   const value: StoreContextType = {
     state,
     dispatch,
@@ -296,6 +324,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     getDashboardStats,
     getProductByCode,
     getSaleById,
+    updateStock,
+    validateStockBeforeSale,
   };
 
   return (

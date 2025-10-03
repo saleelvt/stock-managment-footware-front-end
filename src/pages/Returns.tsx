@@ -20,6 +20,8 @@ import { useToast } from '@/hooks/use-toast';
 import { searchSalesByCustomerName } from '@/services/salesService';
 import { addReturn, transformReturnToRequest, CreateReturnRequest, getRecentReturns } from '@/services/returnService';
 import { indexedDBService } from '@/services/indexedDBService';
+import { ListProducts } from '@/services/productService';
+import { Product } from '@/types';
 
 export function Returns() {
   const { state, dispatch, getSaleById } = useStore();
@@ -226,15 +228,25 @@ export function Returns() {
     }
 
     // Check if quantity exceeds available returnable quantity
-    const maxReturnable = getMaxReturnableQuantity(selectedSale, returnData.productCode, returnData.size);
-    if (returnData.quantity > maxReturnable) {
-      toast({
-        title: "Invalid Return",
-        description: `Return quantity cannot exceed available returnable quantity (${maxReturnable}).`,
-        variant: "destructive",
-      });
-      return;
-    }
+     const maxReturnable = getMaxReturnableQuantity(selectedSale, returnData.productCode, returnData.size);
+     if (returnData.quantity > maxReturnable) {
+       toast({
+         title: "Invalid Return",
+         description: `Return quantity cannot exceed available returnable quantity (${maxReturnable}).`,
+         variant: "destructive",
+       });
+       return;
+     }
+
+     // Additional validation for return quantity
+     if (returnData.quantity <= 0) {
+       toast({
+         title: "Invalid Return",
+         description: "Return quantity must be greater than 0.",
+         variant: "destructive",
+       });
+       return;
+     }
 
     // Find product in state
     let product = state.products.find(p => p.code === returnData.productCode);
@@ -287,6 +299,52 @@ export function Returns() {
       };
 
       dispatch({ type: 'ADD_RETURN', payload: returnItem });
+
+      // Update stock in IndexedDB for the returned item
+      try {
+        const currentStock = product.sizes.find(s => s.size === returnData.size)?.stock || 0;
+        const newStock = currentStock + returnData.quantity;
+
+        await indexedDBService.updateProductStock(parseInt(product.id), returnData.size, newStock);
+        console.log(`Stock persisted to IndexedDB: ${returnData.productCode} (${returnData.size}) from ${currentStock} to ${newStock}`);
+
+        // Refresh products from IndexedDB to get updated stock values
+        // Note: We need access to fetchProducts function from Sales component or create our own
+        const response = await ListProducts();
+        const source = Array.isArray(response)
+          ? response
+          : Array.isArray((response as any)?.data)
+            ? (response as any).data
+            : [];
+
+        const formattedProducts: Product[] = source.map((productData: any) => ({
+          id: productData.id,
+          code: productData.productCode,
+          name: productData.productName,
+          brand: productData.brand,
+          color: productData.color,
+          category: productData.category,
+          sizes: productData.stockBySize.map((sizeStock: any) => ({
+            size: sizeStock.size,
+            stock: sizeStock.quantity
+          })),
+          createdAt: new Date(productData.createdAt),
+          updatedAt: new Date(productData.updatedAt)
+        }));
+
+        // Update the products in state through context
+        dispatch({
+          type: 'SET_DATA',
+          payload: {
+            products: formattedProducts,
+            sales: state.sales,
+            returns: state.returns
+          }
+        });
+      } catch (error) {
+        console.error('Failed to update stock in IndexedDB for return:', error);
+        // Continue with success flow even if IndexedDB update fails
+      }
       
       // Refresh recent returns after successful return
       try {
