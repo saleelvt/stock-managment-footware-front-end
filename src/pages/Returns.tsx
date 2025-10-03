@@ -34,7 +34,7 @@ export function Returns() {
     productId: '',
     productCode: '',
     size: '',
-    quantity: 1,
+    quantity: 0,
     reason: '',
     notes: '',
   });
@@ -598,7 +598,7 @@ export function Returns() {
                               productId: product ? product.id : `temp-${value}`,
                               productCode: value,
                               size: '',
-                              quantity: 1
+                              quantity: 0
                             }));
                           }
                         }}
@@ -624,7 +624,7 @@ export function Returns() {
                           setReturnData(prev => ({ 
                             ...prev, 
                             size: value,
-                            quantity: 1 
+                            quantity: 0 
                           }));
                         }}
                         disabled={!returnData.productCode}
@@ -672,15 +672,18 @@ export function Returns() {
                       max={returnData.productCode && returnData.size ? 
                         getMaxReturnableQuantity(selectedSale, returnData.productCode, returnData.size) : 1
                       }
-                      value={returnData.quantity}
-                      onChange={(e) => setReturnData(prev => ({ 
-                        ...prev, 
-                        quantity: Math.min(
-                          parseInt(e.target.value) || 1, 
-                          returnData.productCode && returnData.size ? 
-                            getMaxReturnableQuantity(selectedSale, returnData.productCode, returnData.size) : 1
-                        )
-                      }))}
+                      value={returnData.quantity === 0 ? '' : returnData.quantity}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const max = returnData.productCode && returnData.size ? 
+                          getMaxReturnableQuantity(selectedSale, returnData.productCode, returnData.size) : 1;
+                        const parsed = raw === '' ? 0 : Math.max(0, parseInt(raw, 10) || 0);
+                        setReturnData(prev => ({
+                          ...prev,
+                          quantity: Math.min(parsed, max)
+                        }));
+                      }}
+                      placeholder="Enter"
                     />
                   </div>
 

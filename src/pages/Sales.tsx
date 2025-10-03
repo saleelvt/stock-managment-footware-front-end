@@ -170,7 +170,7 @@ export function Sales() {
       productCode: '',
       productName: '',
       size: '',
-      quantity: 1,
+      quantity: 0,
       color: '',
     };
 
@@ -195,7 +195,7 @@ export function Sales() {
           updatedItem.productName = product.name;
           updatedItem.color = product.color;
           updatedItem.size = '';
-          updatedItem.quantity = 1;
+          updatedItem.quantity = 0;
         } else {
           updatedItem.productId = '';
           updatedItem.productName = '';
@@ -211,7 +211,8 @@ export function Sales() {
           console.warn(`Quantity ${value} exceeds remaining stock ${remainingStock} for ${updatedItem.productCode} (${updatedItem.size})`);
           updatedItem.quantity = remainingStock; // Auto-correct to maximum allowed
         } else if (value < 1) {
-          updatedItem.quantity = 1; // Minimum quantity is 1
+          // Allow 0 during editing so the input can be cleared; validation will enforce >= 1 on submit
+          updatedItem.quantity = 0;
         }
       }
 
@@ -226,9 +227,10 @@ export function Sales() {
     return saleItems.every((item, index) => {
       if (!item.productCode || !item.size || item.quantity <= 0) return false;
 
-      const remainingStock = getRemainingStock(item.productCode, item.size);
-      if (remainingStock < item.quantity) {
-        console.warn(`Insufficient stock for ${item.productCode} (${item.size}). Available: ${remainingStock}, Requested: ${item.quantity}`);
+      // Compute remaining stock EXCLUDING this item's own quantity
+      const remainingStockExcludingCurrent = getRemainingStock(item.productCode, item.size, index);
+      if (remainingStockExcludingCurrent < item.quantity) {
+        console.warn(`Insufficient stock for ${item.productCode} (${item.size}). Available: ${remainingStockExcludingCurrent}, Requested: ${item.quantity}`);
         return false;
       }
 
@@ -530,9 +532,14 @@ export function Sales() {
                               type="number"
                               min="1"
                               max={getRemainingStock(item.productCode, item.size, index)}
-                              value={item.quantity}
-                              onChange={(e) => handleUpdateSaleItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                              value={item.quantity === 0 ? '' : item.quantity}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                const parsed = raw === '' ? 0 : Math.max(0, parseInt(raw, 10) || 0);
+                                handleUpdateSaleItem(index, 'quantity', parsed);
+                              }}
                               disabled={!item.size}
+                              placeholder="Enter"
                               className="h-10 text-center text-sm w-full"
                             />
                           </div>
