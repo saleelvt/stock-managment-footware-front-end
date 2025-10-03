@@ -10,7 +10,7 @@ interface OfflineIndicatorProps {
   className?: string;
   showSyncButton?: boolean;
   compact?: boolean;
-}
+} 
 
 export function OfflineIndicator({
   className = '',

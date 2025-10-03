@@ -30,7 +30,7 @@ const initialState: StoreState = {
   isLoading: true,
   isInitialized: false,
 };
-
+ 
 function storeReducer(state: StoreState, action: StoreAction): StoreState {
   switch (action.type) {
     case 'SET_LOADING':
@@ -66,14 +66,14 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
       return {
         ...state,
         products: state.products.filter(product => product.id !== action.payload),
-      };
+      }; 
 
-    case 'ADD_SALE':
+    case 'ADD_SALE': 
       // Update stock when sale is added
       const updatedProductsAfterSale = state.products.map(product => {
         const saleItem = action.payload.items.find(item => item.productId === product.id);
         if (saleItem) {
-          return {
+          return { 
             ...product,
             sizes: product.sizes.map(size => 
               size.size === saleItem.size 
@@ -83,7 +83,7 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
           };
         }
         return product;
-      });
+      }); 
  
       return {
         ...state,
@@ -141,10 +141,10 @@ function storeReducer(state: StoreState, action: StoreAction): StoreState {
 
 interface StoreContextType {
   state: StoreState;
-  dispatch: React.Dispatch<StoreAction>;
+  dispatch: React.Dispatch<StoreAction>; 
   getStockAlerts: () => StockAlert[];
   getDashboardStats: () => DashboardStats;
-  getProductByCode: (code: string) => Product | undefined;
+  getProductByCode: (code: string) => Product | undefined; 
   getSaleById: (id: string) => Sale | undefined;
 }
 
@@ -199,7 +199,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notes: s.notes
         }));
 
-        const transformedReturns: Return[] = returns.map(r => ({
+        const transformedReturns: Return[] = returns.map(r => ({ 
           id: r.id?.toString() || '',
           originalSaleId: r.originalSaleId?.toString() || '',
           productId: r.productId?.toString() || '',

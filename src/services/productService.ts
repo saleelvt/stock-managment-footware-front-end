@@ -12,8 +12,8 @@ export interface StockBySize {
 // Legacy Product interface for existing code (for function signatures only)
 interface LegacyProduct {
   id?: string;
-  productCode: string;
-  productName: string;
+  productCode: string; 
+  productName: string; 
   brand: string;
   color: string;
   stockBySize: StockBySize[];

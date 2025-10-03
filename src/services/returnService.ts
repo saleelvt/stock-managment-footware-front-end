@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { indexedDBService } from "./indexedDBService";
 
 // Re-export types for backward compatibility
@@ -128,7 +129,7 @@ export const getRecentReturns = async (limit = 4): Promise<any[]> => {
   try {
     const response = await getReturns(1, limit);
     return response.data;
-  } catch (error) {
+  } catch (error) { 
     console.error('Error in getRecentReturns:', error);
     throw error;
   }

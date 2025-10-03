@@ -173,7 +173,7 @@ class IndexedDBService {
     try {
       const store = await this.getStore(STORES.PRODUCTS, 'readwrite');
       const now = new Date();
-
+ 
       const productWithTimestamps = {
         ...product,
         createdAt: now,
@@ -486,7 +486,7 @@ class IndexedDBService {
       throw error;
     }
   }
-
+ 
   async getAllReturns(): Promise<Return[]> {
     try {
       const store = await this.getStore(STORES.RETURNS);

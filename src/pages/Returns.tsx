@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
 import { useStore } from '@/contexts/StoreContext';
 import { Return } from '@/types';
@@ -357,7 +358,7 @@ export function Returns() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="customer">By Customer Name</SelectItem>
+                        <SelectItem value="customer">By Customer Number</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -367,11 +368,11 @@ export function Returns() {
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
-                          placeholder={searchType === 'customer' ? 'Customer name...' : 'Product code...'}
+                          placeholder={searchType === 'customer' ? 'Customer number...' : 'Product code...'}
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           onKeyPress={(e) => {
-                            if (e.key === 'Enter') handleSearch();
+                            if (e.key === 'Enter') handleSearch(); 
                           }}
                           className="pl-10"
                         />
