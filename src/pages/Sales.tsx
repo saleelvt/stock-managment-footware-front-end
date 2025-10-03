@@ -461,7 +461,7 @@ export function Sales() {
                         className="
             grid grid-cols-1
             sm:grid-cols-2
-            lg:grid-cols-4
+            lg:grid-cols-5
             xl:grid-cols-5
             gap-3
           "
@@ -546,7 +546,7 @@ export function Sales() {
                         </div>
 
                         {/* Remove Item Button */}
-                        <div className="flex justify-end items-center xl:col-span-1">
+                        <div className="flex justify-end items-center lg:col-span-1 xl:col-span-1">
                           <Button
                             type="button"
                             variant="outline"
