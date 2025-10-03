@@ -208,14 +208,6 @@ export function Returns() {
       return;
     }
 
-    if (!returnData.reason.trim()) {
-      toast({
-        title: "Invalid Return",
-        description: "Please provide a reason for the return.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     // Check if product can still be returned
     if (!canReturnProductSize(returnData.productCode, returnData.size)) {
@@ -302,14 +294,20 @@ export function Returns() {
 
       // Update stock in IndexedDB for the returned item
       try {
-        const currentStock = product.sizes.find(s => s.size === returnData.size)?.stock || 0;
+         
+        const idbProduct = await indexedDBService.getProductByCode(returnData.productCode);
+        if (!idbProduct || !idbProduct.id) {
+          throw new Error(`Product with code ${returnData.productCode} not found in IndexedDB`);
+        }
+
+        const sizeEntry = idbProduct.sizes.find(s => s.size === returnData.size);
+        const currentStock = sizeEntry ? sizeEntry.stock : 0;
         const newStock = currentStock + returnData.quantity;
 
-        await indexedDBService.updateProductStock(parseInt(product.id), returnData.size, newStock);
+        await indexedDBService.updateProductStock(idbProduct.id, returnData.size, newStock);
         console.log(`Stock persisted to IndexedDB: ${returnData.productCode} (${returnData.size}) from ${currentStock} to ${newStock}`);
 
         // Refresh products from IndexedDB to get updated stock values
-        // Note: We need access to fetchProducts function from Sales component or create our own
         const response = await ListProducts();
         const source = Array.isArray(response)
           ? response
@@ -332,7 +330,6 @@ export function Returns() {
           updatedAt: new Date(productData.updatedAt)
         }));
 
-        // Update the products in state through context
         dispatch({
           type: 'SET_DATA',
           payload: {
@@ -343,7 +340,11 @@ export function Returns() {
         });
       } catch (error) {
         console.error('Failed to update stock in IndexedDB for return:', error);
-        // Continue with success flow even if IndexedDB update fails
+        toast({
+          title: "Stock Not Updated",
+          description: "The product's stock could not be updated. Please sync products and try again.",
+          variant: "destructive",
+        });
       }
       
       // Refresh recent returns after successful return
@@ -688,11 +689,11 @@ export function Returns() {
                   </div>
 
                   <div>
-                    <Label>Reason for Return *</Label>
+                    <Label>Reason for Return (Optional)</Label>
                     <Textarea
                       value={returnData.reason}
                       onChange={(e) => setReturnData(prev => ({ ...prev, reason: e.target.value }))}
-                      placeholder="Reason for return (required)..."
+                      placeholder="Reason for return (optional)..."
                       rows={2}
                     />
                   </div>
@@ -710,7 +711,7 @@ export function Returns() {
                   <Button
                     onClick={processReturn}
                     className="w-full"
-                    disabled={!returnData.productCode || !returnData.size || !returnData.reason.trim() || processingReturn || 
+                    disabled={!returnData.productCode || !returnData.size || processingReturn || 
                       !canReturnProductSize(returnData.productCode, returnData.size)
                     }
                   >
