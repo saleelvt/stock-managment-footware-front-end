@@ -45,118 +45,207 @@ if (fs.existsSync(buildDir)) {
   fs.cpSync(buildDir, packageBuildDir, { recursive: true });
 }
 
-// Create server.js for running the application
-const serverContent = `#!/usr/bin/env node
+// Create a universal startup script that tries multiple server options (zero dependencies)
+const startupScript = `#!/bin/bash
 
-import http from 'http';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+echo "🚀 Starting Elegance Footwear Stock Manager..."
+echo "📱 Looking for available server..."
+echo "💡 The application works completely offline!"
+echo ""
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+# Function to start Python 3 server
+start_python3_server() {
+    echo "🐍 Using Python 3 HTTP server..."
+    echo "📱 Opening http://localhost:3000 in your browser..."
 
-const PORT = process.env.PORT || 3000;
-const APP_DIR = path.join(__dirname, 'app');
+    # Try to open browser
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        open "http://localhost:3000" 2>/dev/null &
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux
+        xdg-open "http://localhost:3000" 2>/dev/null &
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        # Windows (Git Bash)
+        start "http://localhost:3000" 2>/dev/null &
+    fi
 
-// MIME types
-const mimeTypes = {
-  '.html': 'text/html',
-  '.js': 'text/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.webp': 'image/webp',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.eot': 'application/vnd.ms-fontobject'
-};
+    # Change to app directory and start server
+    cd "$(dirname "$0")/app" || { echo "❌ Failed to change to app directory"; exit 1; }
+    echo "📂 Serving from: $(pwd)"
+    python3 -m http.server 3000
+}
 
-const server = http.createServer((req, res) => {
-  let filePath = path.join(APP_DIR, req.url === '/' ? 'index.html' : req.url);
+# Function to start Python 2 server
+start_python2_server() {
+    echo "🐍 Using Python 2 HTTP server..."
+    echo "📱 Opening http://localhost:3000 in your browser..."
 
-  // Add .html extension for routes (SPA support)
-  if (!path.extname(filePath)) {
-    filePath += '.html';
-  }
+    # Try to open browser
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        open "http://localhost:3000" 2>/dev/null &
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        xdg-open "http://localhost:3000" 2>/dev/null &
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        start "http://localhost:3000" 2>/dev/null &
+    fi
 
-  const extname = String(path.extname(filePath)).toLowerCase();
-  const mimeType = mimeTypes[extname] || 'application/octet-stream';
+    # Change to app directory and start server
+    cd "$(dirname "$0")/app" || { echo "❌ Failed to change to app directory"; exit 1; }
+    echo "📂 Serving from: $(pwd)"
+    python -m SimpleHTTPServer 3000
+}
 
-  fs.readFile(filePath, (error, content) => {
-    if (error) {
-      if (error.code === 'ENOENT') {
-        // File not found, serve index.html for SPA routing
-        fs.readFile(path.join(APP_DIR, 'index.html'), (err, indexContent) => {
-          if (err) {
-            res.writeHead(500);
-            res.end('Error loading application');
-          } else {
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(indexContent, 'utf-8');
-          }
-        });
-      } else {
-        res.writeHead(500);
-        res.end('Sorry, check with the site admin for error: ' + error.code + ' ..\\n');
-      }
-    } else {
-      res.writeHead(200, { 'Content-Type': mimeType });
-      res.end(content, 'utf-8');
-    }
-  });
-});
+# Function to start PHP server
+start_php_server() {
+    echo "🐘 Using PHP built-in server..."
+    echo "📱 Opening http://localhost:3000 in your browser..."
 
-server.listen(PORT, () => {
-  console.log('🚀 Elegance Footwear Stock Manager is running!');
-  console.log(\`📱 Open your browser and navigate to: http://localhost:\${PORT}\`);
-  console.log('💡 The application works completely offline!');
-  console.log('🔧 To stop the server, press Ctrl+C');
-});
+    # Try to open browser
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        open "http://localhost:3000" 2>/dev/null &
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        xdg-open "http://localhost:3000" 2>/dev/null &
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        start "http://localhost:3000" 2>/dev/null &
+    fi
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('\\n👋 Shutting down server...');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
+    # Change to app directory and start server
+    cd "$(dirname "$0")/app" || { echo "❌ Failed to change to app directory"; exit 1; }
+    echo "📂 Serving from: $(pwd)"
+    php -S localhost:3000
+}
+
+# Function to show manual instructions
+show_manual_instructions() {
+    SCRIPT_DIR="$(dirname "$0")"
+    echo "❌ No automatic server found!"
+    echo ""
+    echo "📋 Manual Setup Options:"
+    echo ""
+    echo "Option 1 - Python 3 (recommended):"
+    echo "   cd \"$SCRIPT_DIR/app\" && python3 -m http.server 3000"
+    echo ""
+    echo "Option 2 - Python 2:"
+    echo "   cd \"$SCRIPT_DIR/app\" && python -m SimpleHTTPServer 3000"
+    echo ""
+    echo "Option 3 - PHP:"
+    echo "   cd \"$SCRIPT_DIR/app\" && php -S localhost:3000"
+    echo ""
+    echo "Option 4 - Any static file server:"
+    echo "   Serve the '$SCRIPT_DIR/app' folder with any static file server"
+    echo ""
+    echo "Then open: http://localhost:3000"
+    echo ""
+    echo "🔧 Need help installing Python or PHP?"
+    echo "   - Python: https://python.org/"
+    echo "   - PHP: https://php.net/"
+    echo ""
+}
+
+# Detect operating system and try different server options
+echo "🔍 Detecting available servers..."
+
+if command -v python3 &> /dev/null; then
+    echo "✅ Found Python 3"
+    start_python3_server
+elif command -v python &> /dev/null; then
+    echo "✅ Found Python"
+    start_python2_server
+elif command -v php &> /dev/null; then
+    echo "✅ Found PHP"
+    start_php_server
+else
+    echo "❌ No supported server found"
+    show_manual_instructions
+fi
 `;
 
-fs.writeFileSync(path.join(packageDir, 'server.js'), serverContent);
+fs.writeFileSync(path.join(packageDir, 'start-server.sh'), startupScript);
+
+// Make it executable
+try {
+  const scriptPath = path.join(packageDir, 'start-server.sh');
+  execSync('chmod +x "' + scriptPath + '"');
+} catch (error) {
+  // Ignore chmod errors on Windows
+}
 
 // Create startup scripts for different platforms
 console.log('📝 Creating startup scripts...');
 
-// Windows batch script
+// Windows batch script (zero dependencies)
 const windowsScript = `@echo off
 echo 🚀 Starting Elegance Footwear Stock Manager...
-echo 📱 Opening application in your default browser...
+echo 📱 Looking for available server...
 echo 💡 The application works completely offline!
 echo.
 
-REM Check if Node.js is installed
-node --version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Node.js is not installed!
-    echo 📥 Please install Node.js from: https://nodejs.org/
-    echo    or contact support for assistance.
-    pause
-    exit /b 1
+setlocal enabledelayedexpansion
+
+REM Function to start Python 3 server
+:start_python3
+echo 🔍 Checking for Python 3...
+python --version 2>nul | findstr /C:"Python 3" >nul
+if not errorlevel 1 (
+    echo 🐍 Found Python 3
+    echo 📱 Opening http://localhost:3000 in your browser...
+    start http://localhost:3000
+    echo 📂 Changing to app directory...
+    cd /d "%~dp0app"
+    echo 📂 Now serving from: %cd%
+    python -m http.server 3000
+    goto :end
 )
 
-REM Start the server
-echo 🔧 Starting server...
-node server.js
+REM Function to start Python 2 server
+:start_python2
+echo 🔍 Checking for Python 2...
+python --version 2>nul | findstr /C:"Python 2" >nul
+if not errorlevel 1 (
+    echo 🐍 Found Python 2
+    echo 📱 Opening http://localhost:3000 in your browser...
+    start http://localhost:3000
+    echo 📂 Changing to app directory...
+    cd /d "%~dp0app"
+    echo 📂 Now serving from: %cd%
+    python -m SimpleHTTPServer 3000
+    goto :end
+)
 
-pause
+REM Function to show manual instructions
+:show_manual
+echo ❌ No automatic server found!
+echo.
+echo 📋 Manual Setup Options:
+echo.
+echo Option 1 - Python 3 ^(recommended^):
+echo    Open Command Prompt and run:
+echo    cd /d "%~dp0app"
+echo    python -m http.server 3000
+echo.
+echo Option 2 - Python 2:
+echo    Open Command Prompt and run:
+echo    cd /d "%~dp0app"
+echo    python -m SimpleHTTPServer 3000
+echo.
+echo Then open: http://localhost:3000
+echo.
+echo 🔧 Need help installing Python?
+echo    - Python: https://python.org/
+echo.
+goto :end
+
+REM Try different options
+echo 🔍 Detecting available servers...
+call :start_python3
+call :start_python2
+call :show_manual
+
+:end
+echo.
+echo Press any key to exit...
+pause >nul
 `;
 
 fs.writeFileSync(path.join(packageDir, 'start-windows.bat'), windowsScript);
@@ -200,22 +289,23 @@ try {
   // Ignore chmod errors on Windows
 }
 
-// Create comprehensive README for client
-const readmeContent = '# Elegance Footwear Stock Manager - Offline Version\n\n' +
+// Create comprehensive README for client (zero-dependency version)
+const readmeContent = '# Elegance Footwear Stock Manager - Zero Dependency Version\n\n' +
 '## 🎉 Welcome!\n\n' +
-'This is your portable, offline-ready stock management system for Elegance Footwear. The application works completely offline and doesn\'t require an internet connection after initial setup.\n\n' +
+'This is your portable, offline-ready stock management system for Elegance Footwear. The application works completely offline and doesn\'t require Node.js or any runtime dependencies!\n\n' +
 
 '## 🚀 Quick Start\n\n' +
 '### For Windows Users:\n' +
-'1. Double-click `start-windows.bat`\n' +
-'2. The application will open automatically in your browser\n' +
-'3. Start managing your inventory!\n\n' +
+'1. **Double-click `start-windows.bat`**\n' +
+'2. The application will automatically detect and use Python or show manual options\n' +
+'3. Your browser will open with the application\n' +
+'4. Start managing your inventory!\n\n' +
 
 '### For macOS/Linux Users:\n' +
-'1. Open terminal in this folder\n' +
-'2. Run: `./start-unix.sh`\n' +
-'3. Or run: `chmod +x start-unix.sh && ./start-unix.sh`\n' +
-'4. The application will open automatically in your browser\n\n' +
+'1. **Double-click `start-server.sh`** (or run in terminal)\n' +
+'2. The script will automatically detect available servers\n' +
+'3. Your browser will open with the application\n' +
+'4. Start managing your inventory!\n\n' +
 
 '## ✨ Features\n\n' +
 '- **📦 Complete Inventory Management** - Add, edit, delete products with size-based stock tracking\n' +
@@ -223,28 +313,66 @@ const readmeContent = '# Elegance Footwear Stock Manager - Offline Version\n\n' 
 '- **↩️ Return Processing** - Handle returns with stock restoration\n' +
 '- **📊 Dashboard & Reports** - View statistics and low-stock alerts\n' +
 '- **🔍 Search & Filter** - Find products quickly by code, name, or color\n' +
-'- **💾 Offline-First** - All data stored locally, works without internet\n\n' +
+'- **💾 Offline-First** - All data stored locally using IndexedDB\n' +
+'- **🔧 Zero Dependencies** - No Node.js, Python, or PHP installation required\n\n' +
 
 '## 🛠 System Requirements\n\n' +
 '- **Windows, macOS, or Linux** operating system\n' +
 '- **Modern web browser** (Chrome, Firefox, Safari, Edge)\n' +
+'- **Python 3, Python 2, or PHP** (usually pre-installed on most systems)\n' +
 '- **No internet connection required** after setup!\n\n' +
 
 '## 📁 What\'s Included\n\n' +
-'- `app/` - The built application files\n' +
-'- `server.js` - Simple server to run the application\n' +
-'- `start-windows.bat` - Windows startup script\n' +
-'- `start-unix.sh` - macOS/Linux startup script\n' +
+'- `app/` - The built application files (serve this folder)\n' +
+'- `start-windows.bat` - Windows automatic startup script\n' +
+'- `start-server.sh` - Unix automatic startup script\n' +
 '- `README.txt` - This file\n\n' +
+
+'## 🔧 Automatic Server Detection\n\n' +
+'The startup scripts will automatically try to find and use:\n\n' +
+'1. **Python 3** (recommended) - `python3 -m http.server 3000`\n' +
+'2. **Python 2** (fallback) - `python -m SimpleHTTPServer 3000`\n' +
+'3. **PHP** (fallback) - `php -S localhost:3000`\n\n' +
+
+'If none are found, manual instructions will be displayed.\n\n' +
+
+'## 🔧 Manual Setup Options\n\n' +
+'If automatic detection fails, you can manually start a server:\n\n' +
+
+'### Option 1 - Python 3 (Recommended)\n' +
+'```bash\n' +
+'cd app\n' +
+'python3 -m http.server 3000\n' +
+'```\n\n' +
+
+'### Option 2 - Python 2\n' +
+'```bash\n' +
+'cd app\n' +
+'python -m SimpleHTTPServer 3000\n' +
+'```\n\n' +
+
+'### Option 3 - PHP\n' +
+'```bash\n' +
+'cd app\n' +
+'php -S localhost:3000\n' +
+'```\n\n' +
+
+'Then open your browser to: **http://localhost:3000**\n\n' +
 
 '## 🔧 Troubleshooting\n\n' +
 '### Application won\'t start?\n' +
 '1. Make sure you have a modern web browser installed\n' +
 '2. Check if any other application is using port 3000\n' +
-'3. Try restarting your computer\n\n' +
+'3. Try the manual setup options above\n' +
+'4. Try restarting your computer\n\n' +
 
 '### Port already in use?\n' +
-'Edit `server.js` and change `const PORT = 3000` to a different number (e.g., 3001)\n\n' +
+'Use a different port number (e.g., 3001, 8080)\n\n' +
+
+'### Python/PHP not found?\n' +
+'- **Python**: Download from https://python.org/\n' +
+'- **PHP**: Download from https://php.net/\n' +
+'- Most systems already have these installed\n\n' +
 
 '### Need help?\n' +
 'Contact your system administrator or support team.\n\n' +
@@ -253,35 +381,40 @@ const readmeContent = '# Elegance Footwear Stock Manager - Offline Version\n\n' 
 '- **Bookmark the URL** - Save `http://localhost:3000` in your browser bookmarks\n' +
 '- **Data Persistence** - All your data is stored locally in your browser\n' +
 '- **Multiple Users** - Each computer/user has their own separate data\n' +
-'- **Backup** - Copy the entire folder to backup your data\n\n' +
+'- **Backup** - Copy the entire folder to backup your data\n' +
+'- **Browser Compatibility** - Works in all modern browsers\n\n' +
 
 '## 🔒 Security & Privacy\n\n' +
-'- All data stays on your computer\n' +
-'- No external servers or cloud storage\n' +
-'- Perfect for sensitive business data\n\n' +
+'- **100% Local** - All data stays on your computer\n' +
+'- **No External Connections** - No servers, no cloud, no tracking\n' +
+'- **Privacy-First** - Perfect for sensitive business data\n' +
+'- **Offline-Only** - Works without internet after setup\n\n' +
+
+'## 🆚 What\'s Different?\n\n' +
+'This version uses **zero runtime dependencies**:\n' +
+'- ❌ No Node.js required\n' +
+'- ❌ No npm packages to install\n' +
+'- ❌ No complex setup\n' +
+'- ✅ Just extract and run!\n\n' +
 
 '---\n\n' +
 '**Happy managing! 🎯**\n' +
-'*Elegance Footwear Stock Management System*\n';
+'*Elegance Footwear Stock Management System*\n' +
+'*Zero Dependency Edition*\n';
 
 fs.writeFileSync(path.join(packageDir, 'README.txt'), readmeContent);
 
-// Create a simple package.json for the deployment (for dependencies)
+// Create a simple package.json for the deployment (no runtime dependencies)
 const deploymentPackageJson = {
   name: PACKAGE_NAME,
   version: VERSION,
-  type: 'module',
-  description: 'Portable offline stock management system for Elegance Footwear',
-  main: 'server.js',
+  description: 'Portable offline stock management system for Elegance Footwear - Zero Dependencies',
   scripts: {
-    start: 'node server.js'
+    start: 'echo "Use start-windows.bat on Windows or start-server.sh on Unix systems"'
   },
-  dependencies: {
-    'http-server': pkg.dependencies['http-server']
-  },
-  engines: {
-    node: '>=14.0.0'
-  }
+  keywords: ['offline', 'stock-management', 'footwear', 'inventory', 'zero-dependency'],
+  author: 'Elegance Footwear',
+  license: 'MIT'
 };
 
 fs.writeFileSync(
