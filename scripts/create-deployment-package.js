@@ -270,6 +270,7 @@ fs.writeFileSync(path.join(packageDir, 'README.txt'), readmeContent);
 const deploymentPackageJson = {
   name: PACKAGE_NAME,
   version: VERSION,
+  type: 'module',
   description: 'Portable offline stock management system for Elegance Footwear',
   main: 'server.js',
   scripts: {
