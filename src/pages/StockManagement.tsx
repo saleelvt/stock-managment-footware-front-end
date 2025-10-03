@@ -47,6 +47,7 @@ export function StockManagement() {
   const { state, dispatch } = useStore();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -97,14 +98,18 @@ export function StockManagement() {
     }
   };
 
+  
   useEffect(() => {
-    fetchProducts(currentPage, searchTerm);
-  }, [currentPage]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-    fetchProducts(1, searchTerm);
+    const handle = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 300);
+    return () => clearTimeout(handle);
   }, [searchTerm]);
+
+  
+  useEffect(() => {
+    fetchProducts(currentPage, debouncedSearchTerm);
+  }, [currentPage, debouncedSearchTerm]);
 
   const handleAddProduct = async (
     productData: Omit<Product, "id" | "createdAt" | "updatedAt">
@@ -223,8 +228,8 @@ export function StockManagement() {
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault()
     setSearchTerm(e.target.value);
+    setCurrentPage(1);
   };
 
   const handleClearSearch = () => {
@@ -278,14 +283,12 @@ export function StockManagement() {
             value={searchTerm}
             onChange={handleSearchChange}
             className="pl-10 w-full"
-            disabled={isLoading}
           />
         </div>
         {searchTerm && (
           <Button 
             variant="outline" 
             onClick={handleClearSearch}
-            disabled={isLoading}
             className="w-full sm:w-auto"
           >
             Clear
@@ -293,15 +296,7 @@ export function StockManagement() {
         )}
       </div>
 
-      {isLoading && (
-        <div className="text-center py-8 sm:py-12">
-          <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground text-sm sm:text-base">Loading products...</p>
-        </div>
-      )}
-
-      {!isLoading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
           {products.map((product) => {
             const totalStock = getTotalStock(product);
             const lowStockSizes = getLowStockSizes(product);
@@ -428,9 +423,8 @@ export function StockManagement() {
             );
           })}
         </div>
-      )}
 
-      {!isLoading && products.length > 0 && (
+      {products.length > 0 && (
         <div className="flex flex-col items-center space-y-3 mt-6">
           <span className="text-sm text-muted-foreground text-center px-4">
             Showing {products.length} of {totalProducts} products
@@ -464,7 +458,7 @@ export function StockManagement() {
         </div>
       )}
 
-      {!isLoading && products.length === 0 && (
+      {products.length === 0 && (
         <div className="text-center py-8 sm:py-12 px-4">
           <Package className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">
