@@ -19,6 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { searchSalesByCustomerName } from '@/services/salesService';
 import { addReturn, transformReturnToRequest, CreateReturnRequest, getRecentReturns } from '@/services/returnService';
+import { indexedDBService } from '@/services/indexedDBService';
 
 export function Returns() {
   const { state, dispatch, getSaleById } = useStore();
@@ -41,7 +42,7 @@ export function Returns() {
   const [recentReturns, setRecentReturns] = useState<Return[]>([]);
   const [loadingReturns, setLoadingReturns] = useState(false);
 
-  const handleSearch = async () => {
+  const handleSearch = async (searchTerm?: any) => {
     if (!searchTerm.trim()) {
       setSearchResults([]);
       return;
@@ -52,15 +53,47 @@ export function Returns() {
       let results = [];
 
       if (searchType === 'customer') {
-        results = await searchSalesByCustomerName(searchTerm);
+        // First try API search
+        try {
+          results = await searchSalesByCustomerName(searchTerm);
+        } catch (apiError) {
+          console.error('API search failed, falling back to IndexedDB:', apiError);
+          results = [];
+        }
+
+        // Also search in IndexedDB for offline customer data
+        try {
+          const indexedDBResults = await indexedDBService.searchSalesByCustomerName(searchTerm);
+          // Combine results, avoiding duplicates by ID
+          const combinedResults = [...results];
+          indexedDBResults.forEach(indexedDBSale => {
+            const exists = combinedResults.some(existingSale => existingSale.id === indexedDBSale.id?.toString());
+            if (!exists) {
+              // Convert IndexedDB sale format to match main Sale type
+              const convertedSale = {
+                id: indexedDBSale.id?.toString() || `indexeddb-${Date.now()}`,
+                customerName: indexedDBSale.customerName,
+                items: indexedDBSale.items,
+                totalItems: indexedDBSale.totalItems,
+                saleDate: new Date(indexedDBSale.saleDate),
+                notes: indexedDBSale.notes,
+              };
+              combinedResults.push(convertedSale);
+            }
+          });
+          results = combinedResults;
+        } catch (indexedDBError) {
+          console.error('IndexedDB search failed:', indexedDBError);
+          // Continue with API results if available
+        }
       } else {
-        results = state.sales.filter(sale => 
-          sale.items.some(item => 
+        results = state.sales.filter(sale =>
+          sale.items.some(item =>
             item.productCode.toLowerCase().includes(searchTerm.toLowerCase())
           )
         );
       }
-      
+
       setSearchResults(results);
     } catch (error) {
       console.error('Search error:', error);
@@ -370,7 +403,10 @@ export function Returns() {
                         <Input
                           placeholder={searchType === 'customer' ? 'Customer number...' : 'Product code...'}
                           value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
+                          onChange={(e) => {
+                            setSearchTerm(e.target.value); 
+                            handleSearch(e.target.value);
+                          }}
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') handleSearch(); 
                           }}

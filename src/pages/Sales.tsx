@@ -19,6 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { ListProducts } from '@/services/productService';
 import { addSale, transformSaleToRequest, CreateSaleRequest, getLastSales } from '@/services/salesService';
+import { indexedDBService } from '@/services/indexedDBService';
 
 export function Sales() {
   const { state, dispatch } = useStore();
@@ -242,10 +243,33 @@ export function Sales() {
       };
 
       // Update local state
-      dispatch({ 
-        type: 'ADD_SALE', 
+      dispatch({
+        type: 'ADD_SALE',
         payload: newSale
       });
+
+      // Store sale in IndexedDB for offline customer search
+      try {
+        const saleForIndexedDB = {
+          customerName: customerName.trim(),
+          items: saleItems.map(item => ({
+            productId: parseInt(item.productId) || 0, // Convert string ID to number for IndexedDB
+            productCode: item.productCode,
+            productName: item.productName,
+            size: item.size,
+            quantity: item.quantity,
+            color: item.color,
+          })),
+          totalItems: totalItemsCount,
+          saleDate: new Date(newSaleResponse.saleDate),
+          notes: notes.trim() || undefined,
+        };
+        await indexedDBService.addSale(saleForIndexedDB);
+        console.log('Sale stored in IndexedDB for customer search');
+      } catch (indexedDBError) {
+        console.error('Failed to store sale in IndexedDB:', indexedDBError);
+        // Don't show error to user as this is not critical functionality
+      }
 
       // Refresh recent sales to include the new sale
       if (showRecentSales) {
