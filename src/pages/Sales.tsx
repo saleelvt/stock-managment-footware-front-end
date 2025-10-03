@@ -8,12 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Plus, 
-  Trash2,  
+import {
+  Plus,
+  Trash2,
   ShoppingCart,
   Receipt,
-  Search, 
+  Search,
   RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -24,12 +24,12 @@ import { indexedDBService } from '@/services/indexedDBService';
 export function Sales() {
   const { state, dispatch } = useStore();
   const { toast } = useToast();
-  
+
   // State declarations
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [notes, setNotes] = useState('');
-  const [showRecentSales, setShowRecentSales] = useState(false);
+  const [showRecentSales, setShowRecentSales] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isProcessingSale, setIsProcessingSale] = useState(false);
@@ -45,12 +45,12 @@ export function Sales() {
     try {
       setIsLoadingProducts(true);
       const response = await ListProducts();
-      
+
       const source = Array.isArray(response)
         ? response
         : Array.isArray((response as any)?.data)
-        ? (response as any).data
-        : [];
+          ? (response as any).data
+          : [];
 
       const formattedProducts: Product[] = source.map((productData: any) => ({
         id: productData.id, // Always use backend ID
@@ -66,7 +66,7 @@ export function Sales() {
         createdAt: new Date(productData.createdAt),
         updatedAt: new Date(productData.updatedAt)
       }));
-      
+
       setProducts(formattedProducts);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -82,27 +82,33 @@ export function Sales() {
 
   // Fetch recent sales from backend
   const fetchRecentSales = async () => {
-  try {
-    setIsLoadingRecentSales(true);
-    const salesResponse = await getLastSales(RECENT_SALES_PAGE, RECENT_SALES_LIMIT);
-    setRecentSales(salesResponse);
-  } catch (error) {
-    console.error("Error fetching recent sales:", error);
-    toast({
-      title: "Error",
-      description: "Failed to fetch recent sales from server.",
-      variant: "destructive",
-    });
-  } finally {
-    setIsLoadingRecentSales(false);
-  }
-};
+    try {
+      setIsLoadingRecentSales(true);
+      const salesResponse = await getLastSales(RECENT_SALES_PAGE, RECENT_SALES_LIMIT);
+      setRecentSales(salesResponse);
+    } catch (error) {
+      console.error("Error fetching recent sales:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch recent sales from server.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingRecentSales(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showRecentSales) {
+      fetchRecentSales();
+    }
+  }, [])
 
   // Toggle recent sales visibility
   const handleToggleRecentSales = async () => {
     const willShowRecentSales = !showRecentSales;
     setShowRecentSales(willShowRecentSales);
-    
+
     if (willShowRecentSales) {
       await fetchRecentSales();
     }
@@ -130,13 +136,13 @@ export function Sales() {
   const getAvailableStock = (productCode: string, size: string): number => {
     const product = getProductByCode(productCode);
     if (!product) return 0;
-    
+
     const sizeData = product.sizes.find(sizeItem => sizeItem.size === size);
     return sizeData ? sizeData.stock : 0;
   };
 
   const getProductsWithStock = (): Product[] => {
-    return products.filter(product => 
+    return products.filter(product =>
       product.sizes.some(size => size.stock > 0)
     );
   };
@@ -151,7 +157,7 @@ export function Sales() {
       quantity: 1,
       color: '',
     };
-    
+
     setSaleItems(prevItems => [...prevItems, newSaleItem]);
   };
 
@@ -164,15 +170,15 @@ export function Sales() {
       if (itemIndex !== index) return item;
 
       const updatedItem = { ...item, [field]: value };
-      
+
       // Auto-populate product details when product code changes
       if (field === 'productCode' && typeof value === 'string') {
         const product = getProductByCode(value);
         if (product) {
-          updatedItem.productId = product.id; 
+          updatedItem.productId = product.id;
           updatedItem.productName = product.name;
           updatedItem.color = product.color;
-          updatedItem.size = ''; 
+          updatedItem.size = '';
           updatedItem.quantity = 1;
         } else {
           updatedItem.productId = '';
@@ -181,7 +187,7 @@ export function Sales() {
           updatedItem.size = '';
         }
       }
-      
+
       return updatedItem;
     }));
   };
@@ -189,10 +195,10 @@ export function Sales() {
   // Validation
   const validateSale = (): boolean => {
     if (!customerName.trim() || saleItems.length === 0) return false;
-    
-    return saleItems.every(item => 
-      item.productCode && 
-      item.size && 
+
+    return saleItems.every(item =>
+      item.productCode &&
+      item.size &&
       item.quantity > 0 &&
       getAvailableStock(item.productCode, item.size) >= item.quantity
     );
@@ -275,12 +281,12 @@ export function Sales() {
       if (showRecentSales) {
         await fetchRecentSales();
       }
-      
+
       // Reset form
       setSaleItems([]);
       setCustomerName('');
       setNotes('');
-      
+
       toast({
         title: "Sale Recorded Successfully",
         description: `Sale for ${customerName} has been processed.`,
@@ -310,9 +316,9 @@ export function Sales() {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Sales Management</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Record new sales and manage transactions</p>
         </div>
-        
+
         <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-2">
-          <Button 
+          <Button
             variant="outline"
             onClick={fetchProducts}
             disabled={isLoadingProducts}
@@ -321,8 +327,8 @@ export function Sales() {
             <Search className="w-4 h-4 mr-2" />
             {isLoadingProducts ? 'Refreshing...' : 'Refresh Products'}
           </Button>
-          
-          <Button 
+
+          <Button
             variant="outline"
             onClick={handleToggleRecentSales}
             disabled={isLoadingRecentSales}
@@ -350,7 +356,7 @@ export function Sales() {
                 </Badge>
               </CardTitle>
             </CardHeader>
-            
+
             <CardContent className="space-y-4 sm:space-y-6">
               {/* Customer Information */}
               <div className="space-y-2">
@@ -365,159 +371,159 @@ export function Sales() {
                 />
               </div>
 
-             {/* Sale Items Section */}
-<div className="space-y-4">
-  {/* Header row: Sale Items + Add Button */}
-  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-    <Label className="text-sm font-medium">Sale Items</Label>
-    <Button
-      type="button"
-      size="sm"
-      onClick={handleAddSaleItem}
-      className="flex items-center justify-center gap-2 h-9 w-full sm:w-auto"
-      disabled={products.length === 0}
-    >
-      <Plus className="w-4 h-4" />
-      <span>Add Item</span>
-    </Button>
-  </div>
+              {/* Sale Items Section */}
+              <div className="space-y-4">
+                {/* Header row: Sale Items + Add Button */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <Label className="text-sm font-medium">Sale Items</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddSaleItem}
+                    className="flex items-center justify-center gap-2 h-9 w-full sm:w-auto"
+                    disabled={products.length === 0}
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Item</span>
+                  </Button>
+                </div>
 
-  {/* Loading State */}
-  {isLoadingProducts && (
-    <div className="text-center py-4 text-muted-foreground">
-      Loading products...
-    </div>
-  )}
+                {/* Loading State */}
+                {isLoadingProducts && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    Loading products...
+                  </div>
+                )}
 
-  {/* Empty Products State */}
-  {products.length === 0 && !isLoadingProducts && (
-    <div className="text-center py-4 text-muted-foreground">
-      No products available. Please refresh or check your connection.
-    </div>
-  )}
+                {/* Empty Products State */}
+                {products.length === 0 && !isLoadingProducts && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No products available. Please refresh or check your connection.
+                  </div>
+                )}
 
-  {/* Sale Items List */}
-  {saleItems.map((item, index) => (
-    <Card key={index} className="p-3 sm:p-4 border">
-      <div className="space-y-6">
-        {/* Product Selection Row */}
-        <div
-          className="
+                {/* Sale Items List */}
+                {saleItems.map((item, index) => (
+                  <Card key={index} className="p-3 sm:p-4 border">
+                    <div className="space-y-6">
+                      {/* Product Selection Row */}
+                      <div
+                        className="
             grid grid-cols-1
             sm:grid-cols-2
             lg:grid-cols-4
             xl:grid-cols-5
             gap-3
           "
-        >
-          {/* Product Selection */}
-          <div className="sm:col-span-2 lg:col-span-2 xl:col-span-2">
-            <Label className="text-xs font-medium mb-2 block">Product Selection</Label>
-            <Select
-              value={item.productCode}
-              onValueChange={(value) => handleUpdateSaleItem(index, 'productCode', value)}
-            >
-              <SelectTrigger className="h-10 text-sm w-full">
-                <SelectValue placeholder="Select product" />
-              </SelectTrigger>
-              <SelectContent>
-                {productsWithStock.map(product => (
-                  <SelectItem key={product.id} value={product.code} className="text-sm">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full">
-                      <span className="font-medium">{product.code}</span>
-                      <span className="text-xs text-muted-foreground sm:ml-2">
-                        {product.name} ({product.sizes.reduce((sum, size) => sum + size.stock, 0)} in stock)
-                      </span>
+                      >
+                        {/* Product Selection */}
+                        <div className="sm:col-span-2 lg:col-span-2 xl:col-span-2">
+                          <Label className="text-xs font-medium mb-2 block">Product Selection</Label>
+                          <Select
+                            value={item.productCode}
+                            onValueChange={(value) => handleUpdateSaleItem(index, 'productCode', value)}
+                          >
+                            <SelectTrigger className="h-10 text-sm w-full">
+                              <SelectValue placeholder="Select product" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {productsWithStock.map(product => (
+                                <SelectItem key={product.id} value={product.code} className="text-sm">
+                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full">
+                                    <span className="font-medium">{product.code}</span>
+                                    <span className="text-xs text-muted-foreground sm:ml-2">
+                                      {product.name} ({product.sizes.reduce((sum, size) => sum + size.stock, 0)} in stock)
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Size and Quantity Row (responsive flex) */}
+                        <div className="flex flex-col sm:flex-row gap-3 =rounded-lg  w-full sm:w-auto lg:col-span-2">
+                          {/* Size Selection */}
+                          <div className=" rounded-lg  flex-1">
+                            <Label className="text-xs font-medium mb-2 block">Size</Label>
+                            <Select
+                              value={item.size}
+                              onValueChange={(value) => handleUpdateSaleItem(index, 'size', value)}
+                              disabled={!item.productCode}
+                            >
+                              <SelectTrigger className="h-10 text-sm w-full">
+                                <SelectValue placeholder="Select size" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {item.productCode && getProductByCode(item.productCode)?.sizes
+                                  .filter(size => size.stock > 0)
+                                  .map(size => (
+                                    <SelectItem key={size.size} value={size.size} className="text-sm">
+                                      {size.size} ({size.stock} available)
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {/* Quantity Input */}
+                          <div className=" rounded-lg  flex-1">
+                            <Label className="text-xs font-medium  mb-2  block">Quantity</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              max={getAvailableStock(item.productCode, item.size)}
+                              value={item.quantity}
+                              onChange={(e) => handleUpdateSaleItem(index, 'quantity', parseInt(e.target.value))}
+                              disabled={!item.size}
+                              className="h-10 text-center text-sm w-full"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Remove Item Button */}
+                        <div className="flex justify-end items-center xl:col-span-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveSaleItem(index)}
+                            className="h-10 w-full sm:w-10 p-0 flex items-center"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span className="ml-2 sm:hidden">Remove</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Product Information Display */}
+                      {item.productCode && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          {item.productName && (
+                            <span className="text-muted-foreground font-medium">{item.productName}</span>
+                          )}
+                          {item.color && (
+                            <Badge variant="outline" className="text-xs py-1">
+                              Color: {item.color}
+                            </Badge>
+                          )}
+                          {item.size && (
+                            <Badge
+                              variant={
+                                getAvailableStock(item.productCode, item.size) >= item.quantity
+                                  ? "default"
+                                  : "destructive"
+                              }
+                              className="text-xs py-1"
+                            >
+                              Stock: {getAvailableStock(item.productCode, item.size)}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </SelectItem>
+                  </Card>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Size and Quantity Row (responsive flex) */}
-          <div className="flex flex-col sm:flex-row gap-3 =rounded-lg  w-full sm:w-auto lg:col-span-2">
-            {/* Size Selection */}
-            <div className=" rounded-lg  flex-1">
-              <Label className="text-xs font-medium mb-2 block">Size</Label>
-              <Select
-                value={item.size}
-                onValueChange={(value) => handleUpdateSaleItem(index, 'size', value)}
-                disabled={!item.productCode}
-              >
-                <SelectTrigger className="h-10 text-sm w-full">
-                  <SelectValue placeholder="Select size" />
-                </SelectTrigger>
-                <SelectContent>
-                  {item.productCode && getProductByCode(item.productCode)?.sizes
-                    .filter(size => size.stock > 0)
-                    .map(size => (
-                      <SelectItem key={size.size} value={size.size} className="text-sm">
-                        {size.size} ({size.stock} available)
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Quantity Input */}
-            <div className=" rounded-lg  flex-1">
-              <Label className="text-xs font-medium  mb-2  block">Quantity</Label>
-              <Input
-                type="number"
-                min="1"
-                max={getAvailableStock(item.productCode, item.size)}
-                value={item.quantity}
-                onChange={(e) => handleUpdateSaleItem(index, 'quantity', parseInt(e.target.value))}
-                disabled={!item.size}
-                className="h-10 text-center text-sm w-full"
-              />
-            </div>
-          </div>
-
-          {/* Remove Item Button */}
-          <div className="flex justify-end items-center xl:col-span-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleRemoveSaleItem(index)}
-              className="h-10 w-full sm:w-10 p-0 flex items-center"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="ml-2 sm:hidden">Remove</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Product Information Display */}
-        {item.productCode && (
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            {item.productName && (
-              <span className="text-muted-foreground font-medium">{item.productName}</span>
-            )}
-            {item.color && (
-              <Badge variant="outline" className="text-xs py-1">
-                Color: {item.color}
-              </Badge>
-            )}
-            {item.size && (
-              <Badge 
-                variant={
-                  getAvailableStock(item.productCode, item.size) >= item.quantity 
-                    ? "default" 
-                    : "destructive"
-                }
-                className="text-xs py-1"
-              >
-                Stock: {getAvailableStock(item.productCode, item.size)}
-              </Badge>
-            )}
-          </div>
-        )}
-      </div>
-    </Card>
-  ))}
-</div>
+              </div>
 
 
               {/* Notes Section */}
