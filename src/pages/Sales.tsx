@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ProductSelector } from '@/components/ProductSelector';
 import { Badge } from '@/components/ui/badge';
 import {
   Plus,
@@ -468,37 +469,15 @@ export function Sales() {
                       >
                         {/* Product Selection */}
                         <div className="sm:col-span-2 lg:col-span-2 xl:col-span-2">
-                          <Label className="text-xs font-medium mb-2 block">Product Selection</Label>
-                          <Select
+                          <ProductSelector
+                            products={products}
                             value={item.productCode}
                             onValueChange={(value) => handleUpdateSaleItem(index, 'productCode', value)}
-                          >
-                            <SelectTrigger className="h-10 text-sm w-full">
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {productsWithStock.map(product => {
-                                // Calculate total remaining stock for this product across all sizes, accounting for items already in sale
-                                const totalRemainingStock = product.sizes.reduce((total, size) => {
-                                  const alreadySelectedInThisSize = saleItems
-                                    .filter(saleItem => saleItem.productCode === product.code && saleItem.size === size.size)
-                                    .reduce((sum, saleItem) => sum + saleItem.quantity, 0);
-                                  return total + Math.max(0, size.stock - alreadySelectedInThisSize);
-                                }, 0);
-
-                                return (
-                                  <SelectItem key={product.id} value={product.code} className="text-sm">
-                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center w-full">
-                                      <span className="font-medium">{product.code}</span>
-                                      <span className="text-xs text-muted-foreground sm:ml-2">
-                                        {product.name} ({totalRemainingStock} available)
-                                      </span>
-                                    </div>
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Search products..."
+                            label="Product Selection"
+                            saleItems={saleItems}
+                            className="w-full"
+                          />
                         </div>
 
                         {/* Size and Quantity Row (responsive flex) */}
