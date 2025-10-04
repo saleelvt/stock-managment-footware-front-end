@@ -530,6 +530,13 @@ const readmeContent = '# Elegance Footwear Stock Manager - Smart Zero-Dependency
 '   - Open your browser automatically\n' +
 '3. Start managing your inventory!\n\n' +
 
+'### For Native Desktop Experience:\n' +
+'1. **Use the Electron version** for a native app experience:\n' +
+'   - Run: `npm run package:electron`\n' +
+'   - This creates a native desktop application\n' +
+'   - Available for Windows, macOS, and Linux\n' +
+'   - Includes native menus, window management, and system integration\n\n' +
+
 '## ✨ Enhanced Features\n\n' +
 '- **📦 Complete Inventory Management** - Add, edit, delete products with size-based stock tracking\n' +
 '- **💰 Sales Recording** - Record sales with customer details and automatic stock updates\n' +
@@ -652,7 +659,8 @@ const readmeContent = '# Elegance Footwear Stock Manager - Smart Zero-Dependency
 '- ✅ **Desktop Integration** - Creates shortcuts and menu entries\n' +
 '- ✅ **Cross-Platform Support** - Works on Windows, macOS, Linux\n' +
 '- ✅ **Error Recovery** - Comprehensive troubleshooting and fallbacks\n' +
-'- ✅ **User-Friendly** - Simple double-click or command execution\n\n' +
+'- ✅ **User-Friendly** - Simple double-click or command execution\n' +
+'- ✅ **Native Desktop Option** - Optional Electron wrapper for app-like experience\n\n' +
 
 '## 📞 Support\n\n' +
 'For technical support:\n' +
