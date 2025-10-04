@@ -16,11 +16,23 @@ console.log('🚀 Creating deployment package...');
 
 // Create deployment directory structure
 const deploymentDir = path.join(__dirname, '..', 'deployment');
-const packageDir = path.join(deploymentDir, PACKAGE_NAME);
+const basePackageDir = path.join(deploymentDir, PACKAGE_NAME);
+let packageDir = basePackageDir;
 
-// Clean previous deployment
-if (fs.existsSync(deploymentDir)) {
-  fs.rmSync(deploymentDir, { recursive: true, force: true });
+// Clean previous deployment (Windows-safe)
+try {
+  if (fs.existsSync(basePackageDir)) {
+    fs.rmSync(basePackageDir, { recursive: true, force: true });
+  }
+} catch (err) {
+  if (err && (err.code === 'EBUSY' || err.code === 'EPERM')) {
+    // Fallback: use a fresh timestamped directory to avoid locked files
+    const suffix = '-' + Date.now();
+    packageDir = basePackageDir + suffix;
+    console.warn('⚠️ Previous deployment folder locked (in use). Using new folder:', path.basename(packageDir));
+  } else {
+    throw err;
+  }
 }
 
 // Create directories
@@ -293,133 +305,167 @@ try {
 // Create startup scripts for different platforms
 console.log('📝 Creating startup scripts...');
 
-// Enhanced Windows batch script with installation and desktop integration
-const windowsScript = `@echo off
-setlocal enabledelayedexpansion
-title Elegance Footwear Stock Manager - Setup
+// Windows batch script (robust, ASCII-only, CRLF endings)
+const windowsScript = [
+  '@echo off',
+  'setlocal enabledelayedexpansion',
+  'title Elegance Footwear Stock Manager - Windows Starter',
+  'echo.',
+  'echo Starting Elegance Footwear Stock Manager...',
+  'echo This app runs locally and works offline.',
+  'echo.',
+  'set APP_DIR=%~dp0app',
+  'set URL=http://localhost:3000',
+  'if not exist "%APP_DIR%" (',
+  '  echo ERROR: App folder not found: %APP_DIR%',
+  '  echo Press any key to exit...',
+  '  pause >nul',
+  '  exit /b 1',
+  ')',
+  'echo Preparing to launch server on %URL% ...',
+  'echo The browser will open automatically after the server starts.',
+  'echo.',
+  'echo Detecting Python...',
+  'where py >nul 2>nul',
+  'if %errorlevel%==0 goto test_py_launcher',
+  'where python >nul 2>nul',
+  'if %errorlevel%==0 goto use_python',
+  'where python3 >nul 2>nul',
+  'if %errorlevel%==0 goto use_python3',
+  'goto no_python',
+  '',
+  ':test_py_launcher',
+  'rem Verify py launcher actually resolves to a valid Python installation',
+  'py -3 -c "import sys" >nul 2>nul',
+  'if %errorlevel%==0 goto use_py_launcher',
+  'py -3.12 -c "import sys" >nul 2>nul',
+  'if %errorlevel%==0 goto use_py312',
+  'py -3.11 -c "import sys" >nul 2>nul',
+  'if %errorlevel%==0 goto use_py311',
+  'goto check_others',
+  '',
+  ':check_others',
+  'where python3 >nul 2>nul && goto use_python3',
+  'where python >nul 2>nul && goto use_python',
+  'goto no_python',
+  '',
+  ':use_py_launcher',
+  'echo Using "py -3"',
+  'cd /d "%APP_DIR%"',
+  'start "" cmd /c "timeout /t 2 >nul & start %URL%"',
+  'py -3 -m http.server 3000',
+  'goto end',
+  '',
+  ':use_py312',
+  'echo Using "py -3.12"',
+  'cd /d "%APP_DIR%"',
+  'start "" cmd /c "timeout /t 2 >nul & start %URL%"',
+  'py -3.12 -m http.server 3000',
+  'goto end',
+  '',
+  ':use_py311',
+  'echo Using "py -3.11"',
+  'cd /d "%APP_DIR%"',
+  'start "" cmd /c "timeout /t 2 >nul & start %URL%"',
+  'py -3.11 -m http.server 3000',
+  'goto end',
+  '',
+  ':use_python3',
+  'echo Using "python3"',
+  'cd /d "%APP_DIR%"',
+  'start "" cmd /c "timeout /t 2 >nul & start %URL%"',
+  'python3 -m http.server 3000',
+  'goto end',
+  '',
+  ':use_python',
+  'for /f "tokens=2 delims= " %%v in ("python --version 2^>^&1") do set PYVER=%%v',
+  'echo Detected Python %PYVER%',
+  'echo Starting server...',
+  'cd /d "%APP_DIR%"',
+  'start "" cmd /c "timeout /t 2 >nul & start %URL%"',
+  'python -m http.server 3000 2>nul || python -m SimpleHTTPServer 3000',
+  'goto end',
+  '',
+  ':no_python',
+  'echo.',
+  'echo No working Python detected. Falling back to a built-in PowerShell static server.',
+  'echo If prompted, allow access in Windows Defender Firewall.',
+  'cd /d "%~dp0"',
+  'start "" cmd /c "timeout /t 2 >nul & start %URL%"',
+  'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -AppDir "%APP_DIR%" -Port 3000',
+  'goto end',
+  '',
+  ':end',
+  'echo.',
+  'echo Server stopped. Press any key to exit...',
+  'pause >nul'
+].join('\r\n');
 
-echo 🚀 Starting Elegance Footwear Stock Manager...
-echo 📱 Intelligent Windows setup and server detection...
-echo 💡 The application works completely offline!
-echo.
+fs.writeFileSync(path.join(packageDir, 'start-windows.bat'), windowsScript, { encoding: 'utf8' });
 
-REM Function to create desktop shortcut
-:create_shortcut
-echo 🖥️ Creating desktop shortcut...
-set "DESKTOP=%USERPROFILE%\\Desktop"
-set "SHORTCUT=%DESKTOP%\\Elegance Footwear.lnk"
+// Add a PowerShell static file server as a last-resort fallback on Windows
+const psServe = [
+  'param(',
+  '  [string]$AppDir,',
+  '  [int]$Port = 3000',
+  ')',
+  '$ErrorActionPreference = "Stop"',
+  'if (-not (Test-Path $AppDir)) { Write-Error "AppDir not found: $AppDir" }',
+  'Add-Type -AssemblyName System.Net.HttpListener',
+  '$prefix = "http://*:" + $Port + "/"',
+  '$listener = New-Object System.Net.HttpListener',
+  '$listener.Prefixes.Add($prefix)',
+  'try {',
+  '  $listener.Start()',
+  '  Write-Host "Serving $AppDir on http://localhost:$Port (Ctrl+C to stop)"',
+  '  while ($listener.IsListening) {',
+  '    $ctx = $listener.GetContext()',
+  '    $req = $ctx.Request',
+  '    $res = $ctx.Response',
+  '    $rel = [Uri]::UnescapeDataString($req.Url.AbsolutePath.TrimStart("/"))',
+  '    if ([string]::IsNullOrWhiteSpace($rel)) { $rel = "index.html" }',
+  '    $file = Join-Path $AppDir $rel',
+  '    if (-not (Test-Path $file)) {',
+  '      $file = Join-Path $AppDir "index.html"',
+  '    }',
+  '    try {',
+  '      $bytes = [System.IO.File]::ReadAllBytes($file)',
+  '      $ext = [IO.Path]::GetExtension($file).ToLower()',
+  '      $mime = switch ($ext) {',
+  "        '.html' { 'text/html' }",
+  "        '.js' { 'text/javascript' }",
+  "        '.css' { 'text/css' }",
+  "        '.json' { 'application/json' }",
+  "        '.png' { 'image/png' }",
+  "        '.jpg' { 'image/jpeg' }",
+  "        '.jpeg' { 'image/jpeg' }",
+  "        '.gif' { 'image/gif' }",
+  "        '.svg' { 'image/svg+xml' }",
+  "        '.ico' { 'image/x-icon' }",
+  "        '.webp' { 'image/webp' }",
+  "        '.woff' { 'font/woff' }",
+  "        '.woff2' { 'font/woff2' }",
+  "        '.ttf' { 'font/ttf' }",
+  "        '.eot' { 'application/vnd.ms-fontobject' }",
+  '        default { "application/octet-stream" }',
+  '      }',
+  '      $res.ContentType = $mime',
+  '      $res.OutputStream.Write($bytes, 0, $bytes.Length)',
+  '    } catch {',
+  '      $res.StatusCode = 500',
+  '      $msg = [System.Text.Encoding]::UTF8.GetBytes("Error loading application")',
+  '      $res.OutputStream.Write($msg, 0, $msg.Length)',
+  '    } finally {',
+  '      $res.Close()',
+  '    }',
+  '  }',
+  '} finally {',
+  '  $listener.Stop()',
+  '  $listener.Close()',
+  '}',
+].join('\r\n');
 
-REM Create VBScript to create shortcut
-echo Set oWS = WScript.CreateObject("WScript.Shell") > CreateShortcut.vbs
-echo sLinkFile = "%SHORTCUT%" >> CreateShortcut.vbs
-echo Set oLink = oWS.CreateShortcut(sLinkFile) >> CreateShortcut.vbs
-echo oLink.TargetPath = "cmd.exe" >> CreateShortcut.vbs
-echo oLink.Arguments = "/k cd /d "%~dp0" ^&^& start-windows.bat" >> CreateShortcut.vbs
-echo oLink.Description = "Elegance Footwear Stock Manager - Offline Inventory System" >> CreateShortcut.vbs
-echo oLink.IconLocation = "%~dp0app\\favicon.ico, 0" >> CreateShortcut.vbs
-echo oLink.WorkingDirectory = "%~dp0" >> CreateShortcut.vbs
-echo oLink.Save >> CreateShortcut.vbs
-
-cscript CreateShortcut.vbs >nul 2>&1
-del CreateShortcut.vbs 2>nul
-
-if exist "%SHORTCUT%" (
-    echo ✅ Desktop shortcut created: %SHORTCUT%
-) else (
-    echo ⚠️ Could not create desktop shortcut
-)
-goto :eof
-
-REM Function to start Python 3 server
-:start_python3
-echo 🔍 Checking for Python 3...
-python --version 2>nul | findstr /C:"Python 3" >nul
-if not errorlevel 1 (
-    echo 🐍 Found Python 3
-    echo 📱 Opening http://localhost:3000 in your browser...
-    start http://localhost:3000
-
-    REM Create desktop shortcut
-    call :create_shortcut
-
-    echo 📂 Changing to app directory...
-    cd /d "%~dp0app"
-    echo 📂 Now serving from: %cd%
-    python -m http.server 3000
-    goto :end
-)
-
-REM Function to start Python 2 server
-:start_python2
-echo 🔍 Checking for Python 2...
-python --version 2>nul | findstr /C:"Python 2" >nul
-if not errorlevel 1 (
-    echo 🐍 Found Python 2
-    echo 📱 Opening http://localhost:3000 in your browser...
-    start http://localhost:3000
-
-    REM Create desktop shortcut
-    call :create_shortcut
-
-    echo 📂 Changing to app directory...
-    cd /d "%~dp0app"
-    echo 📂 Now serving from: %cd%
-    python -m SimpleHTTPServer 3000
-    goto :end
-)
-
-REM Function to show enhanced manual instructions
-:show_manual
-echo ❌ No automatic server found!
-echo.
-echo 📋 Setup Options for Windows:
-echo.
-echo Option 1 - Install Python 3:
-echo    Visit: https://python.org/downloads/
-echo    Download and install Python 3.x for Windows
-echo    Make sure to check "Add Python to PATH" during installation
-echo.
-echo Option 2 - Manual server commands:
-echo    Open Command Prompt and run:
-echo    cd /d "%~dp0app"
-echo    python -m http.server 3000
-echo.
-echo Option 3 - Use Windows PowerShell:
-echo    cd "%~dp0app"
-echo    python -m http.server 3000
-echo.
-echo Then open: http://localhost:3000
-echo.
-echo 💡 Tip: Right-click this batch file and "Run as administrator"
-echo         for better shortcut creation.
-echo.
-goto :end
-
-REM Try different options
-echo 🔍 Detecting available servers...
-
-REM Check if we're in Windows
-if "%OS%"=="Windows_NT" (
-    call :start_python3
-    call :start_python2
-    call :show_manual
-) else (
-    echo ❌ Unsupported operating system
-    goto :end
-)
-
-:end
-echo.
-echo 📝 Setup complete! You can now:
-echo    - Use the desktop shortcut (if created)
-echo    - Double-click start-windows.bat anytime
-echo    - Or run the manual commands above
-echo.
-echo Press any key to exit...
-pause >nul
-`;
-
-fs.writeFileSync(path.join(packageDir, 'start-windows.bat'), windowsScript);
+fs.writeFileSync(path.join(packageDir, 'serve.ps1'), psServe, { encoding: 'utf8' });
 
 // macOS/Linux shell script
 const unixScript = `#!/bin/bash
