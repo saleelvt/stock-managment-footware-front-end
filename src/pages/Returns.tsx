@@ -9,12 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   RotateCcw, 
   Search,
   Package,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Check,
+  Plus,
+  X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchSalesByCustomerName } from '@/services/salesService';
@@ -38,6 +42,15 @@ export function Returns() {
     reason: '',
     notes: '',
   });
+  
+   
+  const [selectedItemsToReturn, setSelectedItemsToReturn] = useState<{[key: string]: {
+    saleId: string;
+    productCode: string;
+    size: string;
+    quantity: number;
+    reason: string;
+  }}>({});
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [processingReturn, setProcessingReturn] = useState(false);
@@ -132,35 +145,91 @@ export function Returns() {
 
     fetchRecentReturns();
   }, [state.returns]);
-
-  // Calculate already returned quantities for each product-size combination
+ 
   const getAlreadyReturnedQuantity = (saleId: string, productCode: string, size: string): number => {
     if (!saleId) return 0;
     
-    // Combine returns from API and local state to get all returns
-    const allReturns = [...recentReturns, ...state.returns];
+    
+    const allReturns = [...recentReturns];
+    state.returns.forEach(returnItem => {
+      const exists = allReturns.some(existingReturn => existingReturn.id === returnItem.id);
+      if (!exists) {
+        allReturns.push(returnItem);
+      }
+    });
     
     const returnsForThisSale = allReturns.filter(returnItem => 
       returnItem.originalSaleId === saleId && 
       returnItem.productCode === productCode && 
-      returnItem.size === size
+      String(returnItem.size) === String(size)
     );
     
-    return returnsForThisSale.reduce((total, returnItem) => total + returnItem.quantity, 0);
+    const totalReturned = returnsForThisSale.reduce((total, returnItem) => total + returnItem.quantity, 0);
+    
+    return totalReturned;
   };
 
   //  Get maximum returnable quantity considering already returned items
   const getMaxReturnableQuantity = (saleId: string, productCode: string, size: string): number => {
-    if (!selectedSaleData) return 0;
+    console.log('getMaxReturnableQuantity called with:', { saleId, productCode, size });
+    console.log('selectedSaleData:', selectedSaleData);
+    console.log('searchResults:', searchResults);
     
-    const soldItem = selectedSaleData.items.find(
-      item => item.productCode === productCode && item.size === size
+     
+    let currentSaleData = null;
+    
+    // First try searchResults
+    if (searchResults.length > 0) {
+      currentSaleData = searchResults.find(sale => sale.id === saleId);
+      console.log('Found in searchResults:', currentSaleData);
+    }
+    
+     
+    if (!currentSaleData) {
+      currentSaleData = getSaleById(saleId);
+      console.log('Found via getSaleById:', currentSaleData);
+    }
+    
+    // If still not found, use selectedSaleData
+    if (!currentSaleData) {
+      currentSaleData = selectedSaleData;
+      console.log('Using selectedSaleData as fallback:', currentSaleData);
+    }
+    
+    console.log('Final currentSaleData:', currentSaleData);
+    
+    if (!currentSaleData || !currentSaleData.items) {
+      console.log('No currentSaleData or items, returning 0');
+      return 0;
+    }
+    
+    console.log('Looking for item in sale data:', { productCode, size });
+    console.log('Available items:', currentSaleData.items.map(item => ({ 
+      productCode: item.productCode, 
+      size: item.size,
+      quantity: item.quantity 
+    })));
+    
+    const soldItem = currentSaleData.items.find(
+      item => item.productCode === productCode && String(item.size) === String(size)
     );
     
-    if (!soldItem) return 0;
+    console.log('soldItem found in getMaxReturnableQuantity:', soldItem);
+    
+    if (!soldItem) {
+      console.log('No soldItem found in getMaxReturnableQuantity, returning 0');
+      console.log('This means the item was not found in the sale data');
+      return 0;
+    }
     
     const alreadyReturned = getAlreadyReturnedQuantity(saleId, productCode, size);
     const maxReturnable = soldItem.quantity - alreadyReturned;
+    
+    console.log('getMaxReturnableQuantity calculation:', {
+      soldQuantity: soldItem.quantity,
+      alreadyReturned,
+      maxReturnable
+    });
     
     return Math.max(0, maxReturnable); // Ensure it's not negative
   };
@@ -173,14 +242,120 @@ export function Returns() {
     return maxReturnable > 0;
   };
 
+  // Generate unique key for item selection (includes sale ID for multi-sale support)
+  const getItemKey = (saleId: string, productCode: string, size: string): string => {
+    return `${saleId}-${productCode}-${size}`;
+  };
+
+  // Add/remove item from return selection
+  const toggleItemSelection = (productCode: string, size: string) => {
+    console.log('=== toggleItemSelection called ===');
+    console.log('Input params:', { productCode, size, productCodeType: typeof productCode, sizeType: typeof size });
+    console.log('selectedSaleData:', selectedSaleData);
+    console.log('selectedSale:', selectedSale);
+    
+    // Ensure we have a selected sale
+    if (!selectedSale) {
+      toast({
+        title: "No Sale Selected",
+        description: "Please select a sale first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const itemKey = getItemKey(selectedSale, productCode, size);
+    console.log('Generated itemKey:', itemKey);
+    
+    const maxReturnable = getMaxReturnableQuantity(selectedSale, productCode, size);
+    console.log('maxReturnable:', maxReturnable);
+    
+     
+    if (maxReturnable <= 0) {
+      toast({
+        title: "Cannot Select Item",
+        description: `This product and size combination (${productCode} - ${size}) has already been fully returned.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedItemsToReturn(prev => {
+      if (prev[itemKey]) {
+        // Remove from selection
+        console.log('Removing item from selection:', itemKey);
+        const newSelection = { ...prev };
+        delete newSelection[itemKey];
+        return newSelection;
+      } else {
+        // Add to selection
+        const newItem = {
+          saleId: selectedSale,
+          productCode,
+          size,
+          quantity: 0,
+          reason: ''
+        };
+        console.log('Adding item to selection:', newItem);
+        console.log('Full new selection will be:', { ...prev, [itemKey]: newItem });
+        return {
+          ...prev,
+          [itemKey]: newItem
+        };
+      }
+    });
+  };
+
+  // Update quantity for a selected item
+  const updateItemQuantity = (itemKey: string, quantity: number) => {
+    const item = selectedItemsToReturn[itemKey];
+    if (!item) return;
+    
+    const maxQty = getMaxReturnableQuantity(item.saleId, item.productCode, item.size);
+     
+    const validQuantity = quantity === 0 ? 0 : Math.max(1, Math.min(quantity, maxQty));
+    
+    setSelectedItemsToReturn(prev => ({
+      ...prev,
+      [itemKey]: {
+        ...prev[itemKey],
+        quantity: validQuantity
+      }
+    }));
+  };
+
+  // Update reason for a selected item
+  const updateItemReason = (itemKey: string, reason: string) => {
+    setSelectedItemsToReturn(prev => ({
+      ...prev,
+      [itemKey]: {
+        ...prev[itemKey],
+        reason
+      }
+    }));
+  };
+
   const filteredSales = searchTerm ? searchResults : state.sales.slice(0, 10);
 
   const selectedSaleData = selectedSale ? (
     searchResults.find(sale => sale.id === selectedSale) || 
     getSaleById(selectedSale)
   ) : null;
+  
+  // Debug: Log the source of selectedSaleData
+  if (selectedSaleData) {
+    const fromSearchResults = searchResults.find(sale => sale.id === selectedSale);
+    console.log('selectedSaleData source:', fromSearchResults ? 'searchResults' : 'getSaleById');
+    console.log('selectedSaleData items count:', selectedSaleData.items?.length);
+  }
+  
 
   const processReturn = async () => {
+    console.log('=== processReturn called ===');
+    console.log('selectedSaleData:', selectedSaleData);
+    console.log('selectedSale:', selectedSale);
+    console.log('selectedItemsToReturn:', selectedItemsToReturn);
+    
     if (!selectedSaleData) {
       toast({
         title: "Invalid Return",
@@ -190,90 +365,191 @@ export function Returns() {
       return;
     }
 
-    if (!returnData.productCode || !returnData.size) {
-      toast({
-        title: "Invalid Return",
-        description: "Please select both product and size.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (returnData.quantity <= 0) {
-      toast({
-        title: "Invalid Return",
-        description: "Please enter a valid quantity (greater than 0).",
-        variant: "destructive",
-      });
-      return;
-    }
-
-
-    // Check if product can still be returned
-    if (!canReturnProductSize(returnData.productCode, returnData.size)) {
-      toast({
-        title: "Invalid Return",
-        description: "This product and size combination has already been fully returned.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if quantity exceeds available returnable quantity
-     const maxReturnable = getMaxReturnableQuantity(selectedSale, returnData.productCode, returnData.size);
-     if (returnData.quantity > maxReturnable) {
-       toast({
-         title: "Invalid Return",
-         description: `Return quantity cannot exceed available returnable quantity (${maxReturnable}).`,
-         variant: "destructive",
-       });
-       return;
-     }
-
-     // Additional validation for return quantity
-     if (returnData.quantity <= 0) {
-       toast({
-         title: "Invalid Return",
-         description: "Return quantity must be greater than 0.",
-         variant: "destructive",
-       });
-       return;
-     }
-
-    // Find product in state
-    let product = state.products.find(p => p.code === returnData.productCode);
+    // Check if we have multiple items selected or single item from old form
+    const selectedItemsKeys = Object.keys(selectedItemsToReturn);
+    console.log('selectedItemsKeys:', selectedItemsKeys);
     
-    // If product not found, use sale item data to create necessary product info
-    if (!product) {
-      const soldItem = selectedSaleData.items.find(
-        item => item.productCode === returnData.productCode && item.size === returnData.size
+    if (selectedItemsKeys.length === 0 && (!returnData.productCode || !returnData.size)) {
+      toast({
+        title: "Invalid Return",
+        description: "Please select at least one item to return.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate multiple returns or convert single return to multiple format
+    let itemsToProcess: Array<{
+      saleId: string;
+      productCode: string;
+      size: string;
+      quantity: number;
+      reason: string;
+    }> = [];
+
+    if (selectedItemsKeys.length > 0) {
+      // Multiple returns selected
+      console.log('Processing multiple returns...');
+      selectedItemsKeys.forEach(key => {
+        const item = selectedItemsToReturn[key];
+        console.log('Processing item for key:', key, 'item:', item);
+        
+        if (item.quantity <= 0) {
+          toast({
+            title: "Invalid Return",
+            description: `Please enter a valid quantity for ${item.productCode} size ${item.size}.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        itemsToProcess.push({
+          saleId: item.saleId,
+          productCode: item.productCode,
+          size: item.size,
+          quantity: item.quantity,
+          reason: item.reason
+        });
+      });
+    } else if (returnData.productCode && returnData.size && returnData.quantity > 0) {
+      // Single return from old form
+      if (returnData.quantity <= 0) {
+      toast({
+        title: "Invalid Return",
+          description: "Please enter a valid quantity (greater than 0).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+      itemsToProcess.push({
+        saleId: selectedSale,
+        productCode: returnData.productCode,
+        size: returnData.size,
+        quantity: returnData.quantity,
+        reason: returnData.reason
+      });
+    }
+
+
+    // Validate all items can be returned
+    console.log('=== Starting validation ===');
+    console.log('itemsToProcess:', itemsToProcess);
+    
+    for (const item of itemsToProcess) {
+      console.log('Validating item:', item);
+      console.log('Item types:', { 
+        productCodeType: typeof item.productCode, 
+        sizeType: typeof item.size 
+      });
+      
+      // Get the sale data for this specific item
+      const itemSaleData = searchResults.find(sale => sale.id === item.saleId) || 
+                          getSaleById(item.saleId);
+      
+      console.log('Using itemSaleData for validation:', itemSaleData);
+      console.log('itemSaleData.items:', itemSaleData?.items);
+      
+      if (!itemSaleData) {
+        toast({
+          title: "Invalid Return",
+          description: `Sale data not found for item ${item.productCode} size ${item.size}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Check if the item exists in the sale - use more flexible matching with type conversion
+      const soldItem = itemSaleData.items.find(
+        saleItem => 
+          saleItem.productCode === item.productCode && 
+          String(saleItem.size) === String(item.size)
       );
       
-      product = {
-        id: `temp-${returnData.productCode}-${Date.now()}`,
-        code: returnData.productCode,
-        name: soldItem?.productName || returnData.productCode,
-        category: soldItem?.category || 'Unknown',
-        brand: soldItem?.brand || 'Unknown',
-        color: soldItem?.color || 'Unknown',
-        sizes: [{ size: returnData.size, stock: 0 }],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      console.log('soldItem found:', soldItem);
+      
+      if (!soldItem) {
+        console.log('=== ITEM NOT FOUND - DEBUGGING ===');
+        console.log('Looking for:', { productCode: item.productCode, size: item.size, saleId: item.saleId });
+        console.log('Available items in sale:');
+        itemSaleData.items.forEach((saleItem, index) => {
+          console.log(`Item ${index}:`, {
+            productCode: saleItem.productCode,
+            size: saleItem.size,
+            productCodeType: typeof saleItem.productCode,
+            sizeType: typeof saleItem.size,
+            productCodeMatch: saleItem.productCode === item.productCode,
+            sizeMatch: String(saleItem.size) === String(item.size),
+            exactMatch: saleItem.productCode === item.productCode && String(saleItem.size) === String(item.size)
+          });
+        });
+        
+        toast({
+          title: "Invalid Return",
+          description: `Product ${item.productCode} size ${item.size} was not found in sale ${item.saleId}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get the maximum returnable quantity for this item
+      const maxReturnable = getMaxReturnableQuantity(item.saleId, item.productCode, item.size);
+      
+      if (maxReturnable <= 0) {
+        toast({
+          title: "Invalid Return",
+          description: `This product and size combination (${item.productCode} - ${item.size}) has already been fully returned.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (item.quantity > maxReturnable) {
+        toast({
+          title: "Invalid Return",
+          description: `Return quantity for ${item.productCode} size ${item.size} cannot exceed available returnable quantity (${maxReturnable}).`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
       setProcessingReturn(true);
 
-      // Prepare return data for backend API
-      const returnItemData: Omit<Return, 'id' | 'returnDate' | 'customerName' | 'productName' | 'productId'> = {
-        originalSaleId: selectedSale,
-        productCode: returnData.productCode,
-        size: returnData.size,
-        quantity: returnData.quantity,
-        reason: returnData.reason.trim(),
-        notes: returnData.notes.trim() || undefined,
+      const processedReturns: Return[] = [];
+
+      // Process each return item
+      for (const item of itemsToProcess) {
+        // Find or create product info
+        let product = state.products.find(p => p.code === item.productCode);
+        
+    if (!product) {
+      const soldItem = selectedSaleData.items.find(
+            saleItem => saleItem.productCode === item.productCode && saleItem.size === item.size
+      );
+      
+      product = {
+            id: `temp-${item.productCode}-${Date.now()}`,
+            code: item.productCode,
+            name: soldItem?.productName || item.productCode,
+        category: soldItem?.category || 'Unknown',
+        brand: soldItem?.brand || 'Unknown',
+        color: soldItem?.color || 'Unknown',
+            sizes: [{ size: item.size, stock: 0 }],
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
+    }
+
+        // Prepare return data for backend API
+        const returnItemData: Omit<Return, 'id' | 'returnDate' | 'customerName' | 'productName' | 'productId'> = {
+          originalSaleId: item.saleId,
+          productCode: item.productCode,
+          size: item.size,
+          quantity: item.quantity,
+          reason: item.reason.trim(),
+          notes: '',
+        };
 
       // Transform to backend request format
       const requestData: CreateReturnRequest = transformReturnToRequest(returnItemData);
@@ -281,7 +557,7 @@ export function Returns() {
       // Send to backend API
       const newReturn = await addReturn(requestData);
 
-      // Also dispatch to local state
+        // Create return object for local state
       const returnItem: Return = {
         ...newReturn,
         id: newReturn.id,
@@ -291,21 +567,24 @@ export function Returns() {
       };
 
       dispatch({ type: 'ADD_RETURN', payload: returnItem });
+        processedReturns.push(returnItem);
+      }
 
-      // Update stock in IndexedDB for the returned item
+      // Update stock in IndexedDB for all returned items
       try {
-         
-        const idbProduct = await indexedDBService.getProductByCode(returnData.productCode);
+        for (const item of itemsToProcess) {
+          const idbProduct = await indexedDBService.getProductByCode(item.productCode);
         if (!idbProduct || !idbProduct.id) {
-          throw new Error(`Product with code ${returnData.productCode} not found in IndexedDB`);
+            throw new Error(`Product with code ${item.productCode} not found in IndexedDB`);
         }
 
-        const sizeEntry = idbProduct.sizes.find(s => s.size === returnData.size);
+          const sizeEntry = idbProduct.sizes.find(s => s.size === item.size);
         const currentStock = sizeEntry ? sizeEntry.stock : 0;
-        const newStock = currentStock + returnData.quantity;
+          const newStock = currentStock + item.quantity;
 
-        await indexedDBService.updateProductStock(idbProduct.id, returnData.size, newStock);
-        console.log(`Stock persisted to IndexedDB: ${returnData.productCode} (${returnData.size}) from ${currentStock} to ${newStock}`);
+          await indexedDBService.updateProductStock(idbProduct.id, item.size, newStock);
+          console.log(`Stock persisted to IndexedDB: ${item.productCode} (${item.size}) from ${currentStock} to ${newStock}`);
+        }
 
         // Refresh products from IndexedDB to get updated stock values
         const response = await ListProducts();
@@ -353,11 +632,13 @@ export function Returns() {
         setRecentReturns(updatedReturns);
       } catch (error) {
         console.error('Error refreshing recent returns:', error);
-        setRecentReturns(prev => [returnItem, ...prev.slice(0, 9)]);
+        setRecentReturns(prev => [...processedReturns, ...prev.slice(0, 9)]);
       }
       
 
+      // Clear selections and form
       setSelectedSale('');
+      setSelectedItemsToReturn({});
       setReturnData({
         productId: '',
         productCode: '',
@@ -370,8 +651,8 @@ export function Returns() {
       setSearchResults([]);
       
       toast({
-        title: "Return Processed",
-        description: `Return for ${selectedSaleData.customerName} has been processed successfully.`,
+        title: "Returns Processed",
+        description: `${processedReturns.length} return(s) for ${selectedSaleData.customerName} has been processed successfully.`,
       });
     } catch (error) {
       console.error("Error processing return:", error);
@@ -399,7 +680,7 @@ export function Returns() {
     if (!selectedSale) return null;
     
     const soldItem = selectedSaleData?.items.find(
-      item => item.productCode === productCode && item.size === size
+      item => item.productCode === productCode && String(item.size) === String(size)
     );
     
     if (!soldItem) return null;
@@ -547,16 +828,28 @@ export function Returns() {
                   </div>
                   
                   <div>
-                    <span className="text-muted-foreground text-sm">Items sold:</span>
+                    <span className="text-muted-foreground text-sm">Items sold (select to return):</span>
                     <div className="mt-2 space-y-2">
                       {selectedSaleData.items.map((item, index) => {
                         const returnStatus = getReturnStatus(item.productCode, item.size);
+                        const itemKey = getItemKey(selectedSale, item.productCode, item.size);
+                        const isSelected = !!selectedItemsToReturn[itemKey];
+                        const canReturn = canReturnProductSize(item.productCode, item.size);
+                        
                         return (
-                          <div key={index} className={`text-sm p-2 rounded ${
-                            returnStatus?.fullyReturned ? 'bg-green-50 border border-green-200' : 'bg-white'
-                          }`}>
+                          <div key={index} className={`text-sm p-3 border rounded-lg ${
+                            returnStatus?.fullyReturned ? 'bg-green-50 border-green-200' : 'bg-white border-border hover:<｜tool▁sep｜>muted'
+                          } ${isSelected ? 'bg-primary/10 border-primary' : ''}`}>
+                            <div className="flex items-center space-x-3">
+                              <Checkbox 
+                                checked={isSelected}
+                                onCheckedChange={() => toggleItemSelection(item.productCode, item.size)}
+                                disabled={returnStatus?.fullyReturned || !canReturn}
+                                className="mt-1"
+                              />
+                              <div className="flex-1">
                             <div className="flex justify-between items-center">
-                              <span>
+                                  <span className="font-medium">
                                 {item.productCode} - Size {item.size} - Qty {item.quantity} ({item.color})
                               </span>
                               {returnStatus && (
@@ -570,6 +863,8 @@ export function Returns() {
                                 Can return: {returnStatus.remaining} more
                               </p>
                             )}
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
@@ -578,10 +873,132 @@ export function Returns() {
                 </div>
               )}
 
-              {/* Return Form */}
-              {selectedSaleData && (
+              {/* Multiple Returns Form */}
+              {selectedSaleData && Object.keys(selectedItemsToReturn).length > 0 && (
                 <div className="space-y-4">
-                  <h3 className="font-medium">Return Item</h3>
+                  <h3 className="font-medium flex items-center space-x-2">
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Selected Items to Return</span>
+                    <Badge variant="outline">{Object.keys(selectedItemsToReturn).length} item(s)</Badge>
+                  </h3>
+                  
+                  {/* Warning if items are from different sale */}
+                  {Object.keys(selectedItemsToReturn).length > 0 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center space-x-2 text-sm text-blue-800">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>
+                          Selected items are from sale: <strong>{selectedSaleData.customerName}</strong> 
+                          ({selectedSaleData.saleDate.toLocaleDateString()})
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-4">
+                    {(() => {
+                      // Group items by sale
+                      const itemsBySale = Object.entries(selectedItemsToReturn).reduce((acc, [itemKey, item]) => {
+                        if (!acc[item.saleId]) {
+                          acc[item.saleId] = [];
+                        }
+                        acc[item.saleId].push([itemKey, item]);
+                        return acc;
+                      }, {} as {[saleId: string]: [string, any][]});
+
+                      return Object.entries(itemsBySale).map(([saleId, items]) => {
+                        // Get sale data for this group
+                        const saleData = searchResults.find(sale => sale.id === saleId) || getSaleById(saleId);
+                        
+                        return (
+                          <div key={saleId} className="space-y-3">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                              <h4 className="font-medium text-blue-900">
+                                Sale: {saleData?.customerName || 'Unknown Customer'} 
+                                ({saleData?.saleDate?.toLocaleDateString() || 'Unknown Date'})
+                              </h4>
+                            </div>
+                            
+                            {items.map(([itemKey, item]) => (
+                              <div key={itemKey} className="p-4 border border-primary rounded-lg bg-primary/5">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="font-medium flex items-center space-x-2">
+                                    <Check className="w-4 h-4 text-green-600" />
+                                    <span>{item.productCode} - Size {item.size}</span>
+                                  </h4>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => toggleItemSelection(item.productCode, item.size)}
+                                  >
+                                    <X className="w-3 h-3 mr-1" />
+                                    Remove
+                                  </Button>
+                                  <div className="ml-4 text-sm text-muted-foreground">
+                                    Max: {getMaxReturnableQuantity(item.saleId, item.productCode, item.size)}
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <Label>Return Quantity</Label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max={getMaxReturnableQuantity(item.saleId, item.productCode, item.size)}
+                                      value={item.quantity === 0 ? '' : item.quantity}
+                                      onChange={(e) => updateItemQuantity(itemKey, parseInt(e.target.value) || 0)}
+                                      placeholder="Enter quantity"
+                                      className="w-full"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Reason for Return (Optional)</Label>
+                                    <Input
+                                      type="text"
+                                      value={item.reason}
+                                      onChange={(e) => updateItemReason(itemKey, e.target.value)}
+                                      placeholder="Enter reason..."
+                                      className="w-full"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+
+                  <Button
+                    onClick={processReturn}
+                    className="w-full"
+                    disabled={processingReturn || Object.keys(selectedItemsToReturn).length === 0}
+                    size="lg"
+                  >
+                    {processingReturn ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing Returns...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Process {Object.keys(selectedItemsToReturn).length} Return(s)
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {/* Single Return Form (Legacy) */}
+              {selectedSaleData && Object.keys(selectedItemsToReturn).length === 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-medium">Legacy Single Return Form</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Please select items from the list above to return, or use this form for single item returns.
+                  </p>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
